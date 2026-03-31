@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import * as brevo from 'brevo'  // ✅ CORRECT - utilise le package 'brevo' installé
+import * as brevo from '@getbrevo/brevo'  // ✅ CORRECT - utilise le package 'brevo' installé
 
 const EMAIL_TO = 'contact@nyme.app'
 const EMAIL_FROM = 'NYME <noreply@nyme.app>'
