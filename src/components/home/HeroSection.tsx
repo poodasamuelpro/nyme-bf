@@ -1,231 +1,319 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Star, Shield, MapPin, Clock } from 'lucide-react'
+
+// Moto SVG animée
+function MotoAnimee({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 120 60" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Roue arrière */}
+      <circle cx="22" cy="44" r="12" stroke="#F97316" strokeWidth="3" fill="none"/>
+      <circle cx="22" cy="44" r="5" fill="#F97316" opacity="0.4"/>
+      {/* Roue avant */}
+      <circle cx="90" cy="44" r="12" stroke="#F97316" strokeWidth="3" fill="none"/>
+      <circle cx="90" cy="44" r="5" fill="#F97316" opacity="0.4"/>
+      {/* Corps moto */}
+      <path d="M28 32 L50 20 L75 20 L90 32 L88 44 L24 44 Z" fill="#0F3460" stroke="#1A6EBF" strokeWidth="1.5"/>
+      {/* Carénage */}
+      <path d="M50 20 L65 14 L80 20" stroke="#F97316" strokeWidth="2" fill="none"/>
+      {/* Guidon */}
+      <path d="M80 20 L90 16 L92 22" stroke="#9CA3AF" strokeWidth="2"/>
+      {/* Siège */}
+      <path d="M42 20 L68 20 L65 14 L45 14 Z" fill="#1A6EBF"/>
+      {/* Coursier corps */}
+      <ellipse cx="58" cy="12" rx="7" ry="9" fill="#F97316"/>
+      {/* Tête coursier */}
+      <circle cx="58" cy="4" r="6" fill="#FBBF24"/>
+      {/* Casque */}
+      <path d="M52 3 Q58 -3 64 3 Q65 8 58 9 Q51 8 52 3Z" fill="#0F3460"/>
+      {/* Bras */}
+      <path d="M62 10 L78 18" stroke="#F97316" strokeWidth="3" strokeLinecap="round"/>
+      {/* Colis sur porte-bagage */}
+      <rect x="28" y="22" width="14" height="10" rx="2" fill="#F97316" stroke="#FB923C" strokeWidth="1"/>
+      <line x1="35" y1="22" x2="35" y2="32" stroke="#FB923C" strokeWidth="1"/>
+      <line x1="28" y1="27" x2="42" y2="27" stroke="#FB923C" strokeWidth="1"/>
+      {/* Lignes de vitesse */}
+      <line x1="0" y1="40" x2="12" y2="40" stroke="#F97316" strokeWidth="2" strokeDasharray="3,2" opacity="0.6"/>
+      <line x1="0" y1="35" x2="8" y2="35" stroke="#F97316" strokeWidth="1.5" strokeDasharray="3,2" opacity="0.4"/>
+      <line x1="0" y1="45" x2="10" y2="45" stroke="#F97316" strokeWidth="1" strokeDasharray="3,2" opacity="0.3"/>
+    </svg>
+  )
+}
+
+// Statut qui change
+const statuts = [
+  { text: 'En attente...', color: 'text-yellow-400', dot: 'bg-yellow-400' },
+  { text: 'Coursier trouvé !', color: 'text-nyme-orange', dot: 'bg-nyme-orange' },
+  { text: 'En route vers vous', color: 'text-nyme-blue-light', dot: 'bg-nyme-blue-light' },
+  { text: 'Colis récupéré ✓', color: 'text-green-400', dot: 'bg-green-400' },
+  { text: 'Livraison en cours', color: 'text-nyme-orange', dot: 'bg-nyme-orange' },
+]
 
 export default function HeroSection() {
   const ref = useRef<HTMLDivElement>(null)
+  const [statutIdx, setStatutIdx] = useState(0)
+  const [motoPos, setMotoPos] = useState(0)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.opacity = '0'
-    el.style.transform = 'translateY(30px)'
+    el.style.transform = 'translateY(24px)'
     setTimeout(() => {
       el.style.transition = 'all 0.8s ease-out'
       el.style.opacity = '1'
       el.style.transform = 'translateY(0)'
-    }, 100)
+    }, 150)
   }, [])
 
+  // Rotation des statuts
+  useEffect(() => {
+    const t = setInterval(() => setStatutIdx(i => (i + 1) % statuts.length), 2500)
+    return () => clearInterval(t)
+  }, [])
+
+  // Animation moto sur la route
+  useEffect(() => {
+    let frame: number
+    let pos = 0
+    const animate = () => {
+      pos = (pos + 0.3) % 100
+      setMotoPos(pos)
+      frame = requestAnimationFrame(animate)
+    }
+    frame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  const statut = statuts[statutIdx]
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-nyme-dark noise">
-      {/* Animated background layers */}
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-nyme-dark">
+      {/* Fond animé */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-nyme-blue/40 blur-3xl animate-pulse-slow" />
-        <div className="absolute top-40 right-16 w-96 h-96 rounded-full bg-nyme-orange/10 blur-3xl animate-float" style={{ animationDelay: '-2s' }} />
-        <div className="absolute bottom-20 left-1/3 w-80 h-80 rounded-full bg-nyme-blue-light/15 blur-3xl animate-pulse-slow" style={{ animationDelay: '-4s' }} />
-
-        {/* Grid pattern */}
-        <div className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(249,115,22,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(249,115,22,0.5) 1px, transparent 1px)',
-            backgroundSize: '80px 80px'
-          }}
-        />
-
-        {/* Floating orbs */}
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-nyme-orange/20 animate-float"
-            style={{
-              width: `${8 + i * 4}px`,
-              height: `${8 + i * 4}px`,
-              top: `${15 + i * 12}%`,
-              left: `${5 + i * 15}%`,
-              animationDelay: `${-i * 1.2}s`,
-              animationDuration: `${5 + i}s`
-            }}
-          />
+        <div className="absolute top-16 left-4 sm:left-10 w-48 sm:w-72 h-48 sm:h-72 rounded-full bg-nyme-blue/40 blur-3xl animate-pulse-slow" />
+        <div className="absolute top-32 right-4 sm:right-16 w-64 sm:w-96 h-64 sm:h-96 rounded-full bg-nyme-orange/10 blur-3xl animate-float" style={{ animationDelay: '-2s' }} />
+        <div className="absolute bottom-16 left-1/3 w-56 sm:w-80 h-56 sm:h-80 rounded-full bg-nyme-blue-light/15 blur-3xl animate-pulse-slow" style={{ animationDelay: '-4s' }} />
+        {/* Grid */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(249,115,22,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(249,115,22,0.8) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        {/* Orbes flottantes */}
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="absolute rounded-full bg-nyme-orange/20 animate-float"
+            style={{ width: `${6 + i * 3}px`, height: `${6 + i * 3}px`, top: `${20 + i * 14}%`, left: `${3 + i * 18}%`, animationDelay: `${-i * 1.1}s`, animationDuration: `${5 + i}s` }} />
         ))}
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-16 sm:pb-20">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
 
-          {/* Left: Content */}
-          <div ref={ref}>
+          {/* ─── GAUCHE : Contenu ─── */}
+          <div ref={ref} className="text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-nyme-orange/30 mb-6">
-              <div className="w-2 h-2 rounded-full bg-nyme-orange animate-pulse" />
-              <span className="text-sm text-nyme-orange font-body font-medium">🇧🇫 Disponible à Ouagadougou</span>
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full glass border border-nyme-orange/30 mb-5 sm:mb-6">
+              <div className="w-2 h-2 rounded-full bg-nyme-orange animate-pulse shrink-0" />
+              <span className="text-xs sm:text-sm text-nyme-orange font-body font-medium">🇧🇫 Bientôt à Ouagadougou</span>
             </div>
 
-            <h1 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.05] mb-6">
-              <span className="text-white">Livraison</span>
-              <br />
-              <span className="text-gradient">Rapide &</span>
-              <br />
+            <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.05] mb-5 sm:mb-6">
+              <span className="text-white">Livraison</span><br />
+              <span className="text-gradient">Rapide &</span><br />
               <span className="text-white">Intelligente</span>
             </h1>
 
-            <p className="text-white/60 text-lg font-body leading-relaxed mb-8 max-w-lg">
+            <p className="text-white/60 text-base sm:text-lg font-body leading-relaxed mb-6 sm:mb-8 max-w-lg mx-auto lg:mx-0">
               Envoyez vos colis en quelques secondes. Négociez votre prix, suivez votre coursier en temps réel, payez avec Orange Money, Moov Money ou Wave.
             </p>
 
-            {/* Trust badges */}
-            <div className="flex flex-wrap gap-4 mb-8">
+            {/* Badges de confiance */}
+            <div className="flex flex-wrap justify-center lg:justify-start gap-2 sm:gap-3 mb-6 sm:mb-8">
               {[
                 { icon: Shield, text: 'Coursiers vérifiés' },
                 { icon: MapPin, text: 'Suivi GPS live' },
-                { icon: Clock, text: 'Livraison en 30 min' },
-                { icon: Star, text: '4.8★ satisfaction' },
+                { icon: Clock, text: '30 min' },
+                { icon: Star, text: '4.8★' },
               ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-                  <Icon size={14} className="text-nyme-orange" />
+                <div key={text} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                  <Icon size={12} className="text-nyme-orange shrink-0" />
                   <span className="text-white/70 text-xs font-body">{text}</span>
                 </div>
               ))}
             </div>
 
             {/* CTAs */}
-            <div className="flex flex-wrap gap-4">
-              <a
-                href="#telecharger"
-                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-nyme-orange to-nyme-red text-white font-body font-semibold hover:shadow-xl hover:shadow-nyme-orange/30 transition-all duration-300 hover:-translate-y-1"
-              >
-                Commander maintenant
-                <ArrowRight size={18} />
+            <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-3 sm:gap-4 mb-8 sm:mb-10">
+              <a href="#telecharger" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-nyme-orange to-nyme-red text-white font-semibold text-sm sm:text-base hover:shadow-xl hover:shadow-nyme-orange/30 transition-all duration-300 hover:-translate-y-1">
+                Commander maintenant <ArrowRight size={16} />
               </a>
-              <a
-                href="/#devenir-coursier"
-                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl glass border border-white/20 text-white font-body font-medium hover:border-nyme-orange/40 transition-all duration-300"
-              >
+              <a href="/#devenir-coursier" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl glass border border-white/20 text-white font-medium text-sm sm:text-base hover:border-nyme-orange/40 transition-all duration-300">
                 Devenir coursier
               </a>
             </div>
 
-            {/* Social proof */}
-            <div className="mt-10 flex items-center gap-4">
+            {/* Preuve sociale */}
+            <div className="flex items-center justify-center lg:justify-start gap-3 sm:gap-4">
               <div className="flex -space-x-2">
-                {['bg-nyme-orange', 'bg-nyme-blue-light', 'bg-nyme-red', 'bg-green-500'].map((c, i) => (
-                  <div key={i} className={`w-8 h-8 rounded-full ${c} border-2 border-nyme-dark flex items-center justify-center text-xs font-bold text-white`}>
-                    {['A', 'M', 'S', 'F'][i]}
-                  </div>
+                {[['bg-nyme-orange','A'],['bg-nyme-blue-light','M'],['bg-nyme-red','S'],['bg-green-500','F']].map(([c, l]) => (
+                  <div key={l} className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${c} border-2 border-nyme-dark flex items-center justify-center text-xs font-bold text-white`}>{l}</div>
                 ))}
               </div>
               <div>
-                <div className="text-white font-semibold text-sm">+2 000 utilisateurs</div>
+                <div className="text-white font-semibold text-xs sm:text-sm">+2 000 utilisateurs</div>
                 <div className="text-white/40 text-xs">nous font déjà confiance</div>
               </div>
             </div>
           </div>
 
-          {/* Right: Visual */}
-          <div className="relative flex items-center justify-center">
-            {/* Phone mockup */}
-            <div className="relative animate-float">
-              <div className="w-72 h-[560px] rounded-[3rem] bg-gradient-to-br from-nyme-blue to-nyme-dark border-2 border-nyme-orange/20 shadow-2xl shadow-nyme-orange/10 overflow-hidden relative">
-                {/* Status bar */}
-                <div className="h-10 bg-nyme-blue-mid/80 flex items-center justify-between px-6 pt-2">
-                  <span className="text-white/60 text-xs">09:41</span>
-                  <div className="flex gap-1">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className={`h-2.5 w-1 rounded-sm ${i < 3 ? 'bg-white/60' : 'bg-white/20'}`} />
+          {/* ─── DROITE : Visual ─── */}
+          <div className="relative flex flex-col items-center justify-center gap-6 mt-4 lg:mt-0">
+
+            {/* Route animée avec moto */}
+            <div className="relative w-full max-w-xs sm:max-w-sm mx-auto">
+              {/* Carte / route */}
+              <div className="relative w-full h-32 sm:h-36 rounded-2xl overflow-hidden bg-gradient-to-br from-nyme-blue-mid to-nyme-blue border border-nyme-orange/20">
+                {/* Grille map */}
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(249,115,22,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.6) 1px,transparent 1px)', backgroundSize: '18px 18px' }} />
+                {/* Route */}
+                <div className="absolute bottom-8 left-0 right-0 h-6 bg-white/5 border-t border-b border-white/10">
+                  <div className="absolute inset-y-0 left-1/4 right-1/4 flex items-center">
+                    <div className="w-full border-t-2 border-dashed border-white/20" />
+                  </div>
+                </div>
+                {/* Moto qui roule */}
+                <div className="absolute bottom-5" style={{ left: `${motoPos}%`, transform: 'translateX(-50%)', transition: 'none' }}>
+                  <MotoAnimee className="w-16 sm:w-20 h-auto" />
+                </div>
+                {/* Points de départ/arrivée */}
+                <div className="absolute top-3 left-4 flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-green-400 border-2 border-white animate-pulse" />
+                  <span className="text-white/60 text-[10px]">Hamdallaye</span>
+                </div>
+                <div className="absolute top-3 right-4 flex items-center gap-1.5">
+                  <span className="text-white/60 text-[10px]">Ouaga 2000</span>
+                  <div className="w-3 h-3 rounded-full bg-nyme-orange border-2 border-white" />
+                </div>
+                {/* ETA */}
+                <div className="absolute bottom-2 right-3 bg-white/10 backdrop-blur rounded-lg px-2 py-0.5">
+                  <span className="text-white text-[10px] font-semibold">~8 min</span>
+                </div>
+              </div>
+
+              {/* Statut qui change */}
+              <div className="mt-2 flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass border border-white/10">
+                <div className={`w-2 h-2 rounded-full ${statut.dot} animate-pulse shrink-0`} />
+                <span className={`text-xs font-body font-medium transition-all duration-500 ${statut.color}`}>{statut.text}</span>
+              </div>
+            </div>
+
+            {/* Phone mockup — caché sur très petit mobile, visible sinon */}
+            <div className="relative hidden xs:flex sm:flex items-center justify-center">
+              <div className="relative animate-float w-52 sm:w-64 md:w-72">
+                {/* Téléphone */}
+                <div className="w-full aspect-[9/18] rounded-[2.5rem] bg-gradient-to-br from-nyme-blue to-nyme-dark border-2 border-nyme-orange/20 shadow-2xl shadow-nyme-orange/10 overflow-hidden">
+                  {/* Status bar */}
+                  <div className="h-8 bg-nyme-blue-mid/80 flex items-center justify-between px-5 pt-1">
+                    <span className="text-white/60 text-[10px]">09:41</span>
+                    <div className="flex gap-0.5">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className={`h-2 w-0.5 rounded-sm ${i < 3 ? 'bg-white/60' : 'bg-white/20'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  {/* Map */}
+                  <div className="mx-2.5 mt-2 h-32 sm:h-36 rounded-xl overflow-hidden relative bg-gradient-to-br from-nyme-blue-mid to-nyme-blue">
+                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(249,115,22,0.6) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,0.6) 1px,transparent 1px)', backgroundSize: '16px 16px' }} />
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 240 150">
+                      <path d="M40,120 Q80,60 140,45 Q180,35 210,30" stroke="#F97316" strokeWidth="2.5" fill="none" strokeDasharray="6,3">
+                        <animate attributeName="stroke-dashoffset" from="100" to="0" dur="3s" repeatCount="indefinite" />
+                      </path>
+                      <circle cx="40" cy="120" r="6" fill="#10B981" />
+                      <circle cx="210" cy="30" r="6" fill="#F97316" />
+                      {/* Moto sur la route */}
+                      <g style={{ animation: 'moveMoto 4s linear infinite' }}>
+                        <ellipse cx="120" cy="75" rx="14" ry="7" fill="#0F3460" stroke="#1A6EBF" strokeWidth="1"/>
+                        <circle cx="108" cy="79" r="5" stroke="#F97316" strokeWidth="1.5" fill="none"/>
+                        <circle cx="132" cy="79" r="5" stroke="#F97316" strokeWidth="1.5" fill="none"/>
+                        <circle cx="120" cy="68" r="4" fill="#FBBF24"/>
+                        <rect x="113" y="68" width="8" height="6" rx="1" fill="#F97316"/>
+                      </g>
+                      <circle cx="120" cy="75" r="14" fill="#F97316" opacity="0.15">
+                        <animate attributeName="r" from="10" to="20" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" from="0.3" to="0" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                    </svg>
+                    <div className="absolute bottom-1.5 right-2 bg-white/10 backdrop-blur rounded-md px-1.5 py-0.5">
+                      <span className="text-white text-[9px] font-semibold">~12 min</span>
+                    </div>
+                  </div>
+                  {/* Carte coursier */}
+                  <div className="mx-2.5 mt-2 p-3 rounded-xl bg-gradient-to-br from-nyme-orange/20 to-nyme-orange/5 border border-nyme-orange/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-semibold text-[11px]">Course en cours</span>
+                      <span className="text-nyme-orange text-[9px] px-1.5 py-0.5 rounded-full bg-nyme-orange/10">En route</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-nyme-orange flex items-center justify-center text-white font-bold text-xs shrink-0">M</div>
+                      <div>
+                        <div className="text-white text-[11px] font-medium">Moussa K.</div>
+                        <div className="flex gap-0.5">
+                          {[...Array(5)].map((_, i) => <Star key={i} size={8} className="fill-nyme-orange text-nyme-orange" />)}
+                        </div>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <div className="text-nyme-orange font-bold text-sm">3 500</div>
+                        <div className="text-white/40 text-[9px]">FCFA</div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  <div className="mx-2.5 mt-2 grid grid-cols-3 gap-1.5">
+                    {['📞 Appeler', '💬 Chat', '📤 Partager'].map((a) => (
+                      <div key={a} className="py-1.5 rounded-lg bg-white/5 border border-white/10 text-center text-[9px] text-white/60">{a}</div>
                     ))}
                   </div>
                 </div>
 
-                {/* Map area */}
-                <div className="mx-3 mt-2 h-48 rounded-2xl overflow-hidden relative bg-gradient-to-br from-nyme-blue-mid to-nyme-blue">
-                  {/* Fake map grid */}
-                  <div className="absolute inset-0 opacity-20"
-                    style={{
-                      backgroundImage: 'linear-gradient(rgba(249,115,22,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(249,115,22,0.6) 1px, transparent 1px)',
-                      backgroundSize: '20px 20px'
-                    }}
-                  />
-                  {/* Route line */}
-                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 200">
-                    <path d="M60,160 Q100,80 180,60 Q220,50 250,40" stroke="#F97316" strokeWidth="3" fill="none" strokeDasharray="8,4" className="animate-dash" />
-                    <circle cx="60" cy="160" r="8" fill="#10B981" />
-                    <circle cx="250" cy="40" r="8" fill="#F97316" />
-                    <circle cx="150" cy="95" r="12" fill="#F97316" opacity="0.9" />
-                    <circle cx="150" cy="95" r="20" fill="#F97316" opacity="0.2" className="animate-pulse" />
-                  </svg>
-                  <div className="absolute bottom-2 right-2 bg-white/10 backdrop-blur rounded-lg px-2 py-1">
-                    <span className="text-white text-xs font-semibold">~12 min</span>
-                  </div>
-                </div>
-
-                {/* Delivery card */}
-                <div className="mx-3 mt-3 p-4 rounded-2xl bg-gradient-to-br from-nyme-orange/20 to-nyme-orange/5 border border-nyme-orange/20">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-white font-semibold text-sm">Course en cours</span>
-                    <span className="text-nyme-orange text-xs px-2 py-0.5 rounded-full bg-nyme-orange/10">En route</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-nyme-orange flex items-center justify-center text-white font-bold text-sm">M</div>
+                {/* Notification flottante */}
+                <div className="absolute -top-4 -right-4 sm:-right-10 glass border border-nyme-orange/30 rounded-xl px-3 py-2 shadow-xl animate-float" style={{ animationDelay: '-3s' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📦</span>
                     <div>
-                      <div className="text-white text-sm font-medium">Moussa K.</div>
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={10} className="fill-nyme-orange text-nyme-orange" />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <div className="text-nyme-orange font-bold">3 500</div>
-                      <div className="text-white/40 text-xs">FCFA</div>
+                      <div className="text-white text-[10px] font-semibold whitespace-nowrap">Colis récupéré !</div>
+                      <div className="text-white/40 text-[9px]">il y a 2 min</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Bottom actions */}
-                <div className="mx-3 mt-3 grid grid-cols-3 gap-2">
-                  {['Appeler', 'Chat', 'Partager'].map((action, i) => (
-                    <div key={action} className="py-2 rounded-xl bg-white/5 border border-white/10 text-center text-xs text-white/60">
-                      {action}
-                    </div>
-                  ))}
+                {/* Prix chip */}
+                <div className="absolute -bottom-3 -left-4 sm:-left-8 glass border border-nyme-blue-light/30 rounded-xl px-3 py-1.5 shadow-xl animate-float" style={{ animationDelay: '-1.5s' }}>
+                  <div className="text-white/50 text-[9px]">Prix négocié</div>
+                  <div className="text-nyme-orange font-heading font-bold text-sm">3 500 FCFA</div>
                 </div>
               </div>
 
-              {/* Floating notification */}
-              <div className="absolute -top-6 -right-12 glass border border-nyme-orange/30 rounded-2xl px-4 py-3 shadow-xl animate-float" style={{ animationDelay: '-3s' }}>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-nyme-orange/20 flex items-center justify-center text-nyme-orange text-lg">📦</div>
-                  <div>
-                    <div className="text-white text-xs font-semibold">Colis récupéré !</div>
-                    <div className="text-white/40 text-xs">il y a 2 min</div>
-                  </div>
-                </div>
+              {/* Pulse rings */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-64 h-64 rounded-full border border-nyme-orange/10 animate-ping" style={{ animationDuration: '3s' }} />
               </div>
-
-              {/* Price chip */}
-              <div className="absolute -bottom-4 -left-10 glass border border-nyme-blue-light/30 rounded-xl px-4 py-2 shadow-xl animate-float" style={{ animationDelay: '-1.5s' }}>
-                <div className="text-white/50 text-xs">Prix négocié</div>
-                <div className="text-nyme-orange font-heading text-lg font-bold">3 500 FCFA</div>
-              </div>
-            </div>
-
-            {/* Pulse rings */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-80 h-80 rounded-full border border-nyme-orange/10 animate-ping" style={{ animationDuration: '3s' }} />
-              <div className="absolute w-96 h-96 rounded-full border border-nyme-orange/5 animate-ping" style={{ animationDuration: '4s', animationDelay: '-1s' }} />
             </div>
           </div>
         </div>
       </div>
 
       {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
-        <span className="text-white/30 text-xs tracking-widest uppercase">Défiler</span>
-        <div className="w-5 h-8 rounded-full border border-white/20 flex justify-center pt-2">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-2 animate-bounce">
+        <span className="text-white/30 text-[10px] tracking-widest uppercase">Défiler</span>
+        <div className="w-5 h-7 rounded-full border border-white/20 flex justify-center pt-1.5">
           <div className="w-1 h-2 rounded-full bg-nyme-orange animate-bounce" />
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes moveMoto {
+          0% { transform: translateX(-60px); }
+          100% { transform: translateX(60px); }
+        }
+      `}</style>
     </section>
   )
 }
