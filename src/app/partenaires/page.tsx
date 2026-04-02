@@ -8,4 +8,4 @@ export const metadata: Metadata = {
 
 export default function PartenairesPage() {
   return <PartenairesClient />
-}
+} 
