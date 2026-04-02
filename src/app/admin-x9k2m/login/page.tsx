@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Zap, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react' 
-
-// Route secrète : /admin-x9k2m/login
-// Ne pas indexer, ne pas mentionner dans le header/footer public
+import { Zap, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -19,9 +16,9 @@ export default function AdminLoginPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
-      // Vérifier que c'est bien un admin
       const { data: u } = await supabase.from('utilisateurs').select('role').eq('id', session.user.id).single()
-      if (u?.role === 'admin') router.replace('/admin-x9k2m/dashboard')
+      // ✅ window.location.href pour cohérence avec le middleware cookie
+      if (u?.role === 'admin') window.location.href = '/admin-x9k2m/dashboard'
     })
   }, [router])
 
@@ -35,7 +32,6 @@ export default function AdminLoginPage() {
       if (authErr) throw new Error('Identifiants incorrects')
       if (!data.session) throw new Error('Connexion échouée')
 
-      // Vérifier strictement le rôle admin
       const { data: u, error: uErr } = await supabase
         .from('utilisateurs').select('role, est_actif')
         .eq('id', data.session.user.id).single()
@@ -49,7 +45,12 @@ export default function AdminLoginPage() {
         throw new Error('Compte désactivé.')
       }
 
-      router.push('/admin-x9k2m/dashboard')
+      // ✅ FIX CRITIQUE : window.location.href force un rechargement HTTP complet.
+      // router.push() est SPA → le cookie Supabase posé par signInWithPassword
+      // n'est pas encore propagé au middleware Next.js → session=null → redirect login.
+      // window.location.href envoie les cookies dans la requête HTTP → middleware OK.
+      window.location.href = '/admin-x9k2m/dashboard'
+
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion')
     } finally {
@@ -103,7 +104,9 @@ export default function AdminLoginPage() {
 
             <button type="submit" disabled={loading}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-nyme-orange to-nyme-orange-light text-white font-bold text-sm font-body flex items-center justify-center gap-2 shadow-nyme-orange hover:shadow-lg transition-all disabled:opacity-60">
-              {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Connexion...</> : <>Accéder au dashboard <ArrowRight size={14}/></>}
+              {loading
+                ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Connexion...</>
+                : <>Accéder au dashboard <ArrowRight size={14}/></>}
             </button>
           </form>
         </div>
