@@ -8,11 +8,8 @@ const ADMIN_ROUTE = '/admin-x9k2m'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
-  // ✅ FIX CRITIQUE : createMiddlewareClient lit ET rafraîchit le cookie de session.
-  // Sans l'appel à getSession() ici, le cookie posé par signInWithPassword côté
-  // client n'est pas propagé dans la réponse → toutes les navigations suivantes
-  // voient session=null → boucle de redirection vers /login.
-  // Il FAUT appeler getSession() pour que le middleware synchronise le cookie.
+  // Synchronise le cookie de session Supabase dans la réponse.
+  // OBLIGATOIRE pour que le refresh token fonctionne côté serveur.
   const supabase = createMiddlewareClient({ req, res })
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -21,18 +18,10 @@ export async function middleware(req: NextRequest) {
   // ── Protection dashboard partenaire ──────────────────────────
   if (path.startsWith('/partenaires/dashboard')) {
     if (!session) {
-      const url = new URL('/partenaires/login', req.url)
-      url.searchParams.set('redirect', path)
-      return NextResponse.redirect(url)
+      // ✅ Pas de ?redirect dans l'URL pour éviter les boucles
+      return NextResponse.redirect(new URL('/partenaires/login', req.url))
     }
-    // ✅ Retourner `res` (et non NextResponse.next()) pour conserver les Set-Cookie
-    // que createMiddlewareClient a potentiellement ajoutés (refresh token, etc.)
     return res
-  }
-
-  // ── Redirection si déjà connecté (partenaire) ────────────────
-  if (path === '/partenaires/login' && session) {
-    return NextResponse.redirect(new URL('/partenaires/dashboard', req.url))
   }
 
   // ── Protection dashboard admin ───────────────────────────────
@@ -40,22 +29,22 @@ export async function middleware(req: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL(`${ADMIN_ROUTE}/login`, req.url))
     }
-    // ✅ Retourner `res` pour conserver les cookies
     return res
   }
 
-  // ── Redirection si déjà connecté (admin) ─────────────────────
-  if (path === `${ADMIN_ROUTE}/login` && session) {
-    return NextResponse.redirect(new URL(`${ADMIN_ROUTE}/dashboard`, req.url))
-  }
+  // ✅ IMPORTANT : on ne redirige PAS depuis les pages /login même si session présente.
+  // Raison : la page login vérifie elle-même la session dans un useEffect et fait
+  // window.location.href → dashboard. Si le middleware redirige aussi → boucle infinie :
+  //   middleware voit session → redirect dashboard
+  //   → middleware dashboard voit session → OK passe
+  //   mais si un cookie mal timé : dashboard → redirect login → middleware login
+  //   → redirect dashboard → boucle.
+  // Solution : laisser les pages /login gérer leur propre redirection post-session.
 
   return res
 }
 
 export const config = {
-  // ✅ Matcher ciblé uniquement sur les routes protégées.
-  // Ne PAS inclure les routes /api/* — le middleware n'a rien à faire là-bas
-  // et appeler getSession() sur chaque requête API ajouterait une latence inutile.
   matcher: [
     '/partenaires/dashboard/:path*',
     '/partenaires/login',
