@@ -25,8 +25,8 @@ export async function middleware(req: NextRequest) {
       url.searchParams.set('redirect', path)
       return NextResponse.redirect(url)
     }
-    // Session présente → laisser passer en retournant `res`
-    // (important : retourner `res` et non NextResponse.next() pour conserver les cookies)
+    // ✅ Retourner `res` (et non NextResponse.next()) pour conserver les Set-Cookie
+    // que createMiddlewareClient a potentiellement ajoutés (refresh token, etc.)
     return res
   }
 
@@ -40,6 +40,7 @@ export async function middleware(req: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL(`${ADMIN_ROUTE}/login`, req.url))
     }
+    // ✅ Retourner `res` pour conserver les cookies
     return res
   }
 
@@ -52,6 +53,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  // ✅ Matcher ciblé uniquement sur les routes protégées.
+  // Ne PAS inclure les routes /api/* — le middleware n'a rien à faire là-bas
+  // et appeler getSession() sur chaque requête API ajouterait une latence inutile.
   matcher: [
     '/partenaires/dashboard/:path*',
     '/partenaires/login',
