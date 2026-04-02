@@ -29,7 +29,9 @@ export default function PartenairesLoginPage() {
           .select('id')
           .eq('user_id', session.user.id)
           .single()
-        if (data) router.replace('/partenaires/dashboard')
+        // ✅ FIX : window.location.href au lieu de router.replace
+        // router.replace() est SPA → le middleware voit session=null → redirect login → boucle
+        if (data) window.location.href = '/partenaires/dashboard'
       }
     })
   }, [router])
@@ -93,18 +95,12 @@ export default function PartenairesLoginPage() {
         throw new Error('Demande de partenariat rejetée. Contactez nyme.contact@gmail.com')
       }
 
-      setSuccess('✅ Connexion réussie ! Redirection vers le dashboard...')
+      setSuccess('✅ Connexion réussie ! Redirection...')
 
-      // ✅ FIX CRITIQUE : on utilise window.location.href et non router.push()
-      // router.push() est une navigation côté client (SPA) : le cookie de session
-      // Supabase posé par signInWithPassword n'est pas encore propagé au middleware
-      // Next.js → le middleware voit session=null → redirige vers /partenaires/login
-      // → boucle infinie sans jamais atteindre le dashboard.
-      // window.location.href force un rechargement HTTP complet : le navigateur
-      // envoie tous les cookies dans la requête → le middleware lit la session → OK.
-      setTimeout(() => {
-        window.location.href = '/partenaires/dashboard'
-      }, 800)
+      // ✅ FIX CRITIQUE : window.location.href force un rechargement HTTP complet.
+      // Sans setTimeout ou avec un délai minimal — le cookie est déjà posé par
+      // signInWithPassword avant qu'on arrive ici, pas besoin d'attendre 800ms.
+      window.location.href = '/partenaires/dashboard'
 
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion')
@@ -224,7 +220,7 @@ export default function PartenairesLoginPage() {
         }
       }
 
-      setSuccess("🎉 Compte créé avec succès ! Votre demande est en attente de validation par l'administration. Vous pouvez vous connecter.")
+      setSuccess("🎉 Compte créé ! Votre demande est en attente de validation. Vous pouvez vous connecter.")
       setMode('login')
       setPassword('')
       setEntreprise('')
