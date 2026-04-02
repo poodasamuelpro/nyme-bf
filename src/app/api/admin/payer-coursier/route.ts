@@ -54,16 +54,22 @@ export async function POST(req: Request) {
         p_description: description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
       })
       if (!rpcErr && txId) {
-        // Notifier le coursier
-        await supabaseAdmin.from('notifications').insert({
-          user_id: coursier_id, type: 'paiement',
+        // ✅ FIX: pas de .catch() sur PostgrestFilterBuilder — await + destructuring
+        const { error: notifErr1 } = await supabaseAdmin.from('notifications').insert({
+          user_id: coursier_id,
+          type: 'paiement',
           titre: '💰 Paiement reçu',
           message: `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. ${description || ''}`.trim(),
-          lu: false, created_at: new Date().toISOString(),
-        }).catch(error => {
-          console.error('Erreur notification:', error)
+          lu: false,
+          created_at: new Date().toISOString(),
         })
-        return NextResponse.json({ success: true, message: `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`, transaction_id: txId })
+        if (notifErr1) console.error('Erreur notification:', notifErr1)
+
+        return NextResponse.json({
+          success: true,
+          message: `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`,
+          transaction_id: txId,
+        })
       }
     } catch {}
 
@@ -83,16 +89,16 @@ export async function POST(req: Request) {
       wallet = existingWallet
     }
 
-    const soldeAvant  = Number(wallet.solde || 0)
-    const soldeApres  = soldeAvant + Number(montant)
+    const soldeAvant = Number(wallet.solde || 0)
+    const soldeApres = soldeAvant + Number(montant)
 
     // 6. Mettre à jour le wallet
     const { error: updateErr } = await supabaseAdmin
       .from('wallets')
       .update({
-        solde:          soldeApres,
-        total_gains:    Number(wallet.total_gains || 0) + Number(montant),
-        updated_at:     new Date().toISOString(),
+        solde:       soldeApres,
+        total_gains: Number(wallet.total_gains || 0) + Number(montant),
+        updated_at:  new Date().toISOString(),
       })
       .eq('user_id', coursier_id)
 
@@ -100,7 +106,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Erreur mise à jour wallet: ${updateErr.message}` }, { status: 400 })
     }
 
-    // 7. Enregistrer la transaction (structure réelle : user_id, solde_avant, solde_apres)
+    // 7. Enregistrer la transaction
     const { data: tx } = await supabaseAdmin
       .from('transactions_wallet')
       .insert({
@@ -114,30 +120,29 @@ export async function POST(req: Request) {
       })
       .select().single()
 
-    // 8. Mettre à jour total_gains dans coursiers aussi
-    await supabaseAdmin
+    // 8. ✅ FIX: pas de .catch() — await + destructuring
+    const { error: coursierErr } = await supabaseAdmin
       .from('coursiers')
       .update({ total_gains: soldeApres })
       .eq('id', coursier_id)
-      .catch(error => {
-        console.error('Erreur update coursiers:', error)
-      })
+    if (coursierErr) console.error('Erreur update coursiers:', coursierErr)
 
-    // 9. Notifier le coursier
-    await supabaseAdmin.from('notifications').insert({
-      user_id: coursier_id, type: 'paiement',
+    // 9. ✅ FIX: pas de .catch() — await + destructuring
+    const { error: notifErr2 } = await supabaseAdmin.from('notifications').insert({
+      user_id: coursier_id,
+      type: 'paiement',
       titre: '💰 Paiement reçu',
       message: `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. Nouveau solde : ${soldeApres.toLocaleString('fr-FR')} FCFA.`,
-      lu: false, created_at: new Date().toISOString(),
-    }).catch(error => {
-      console.error('Erreur notification finale:', error)
+      lu: false,
+      created_at: new Date().toISOString(),
     })
+    if (notifErr2) console.error('Erreur notification finale:', notifErr2)
 
     return NextResponse.json({
-      success:       true,
-      message:       `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`,
-      solde_avant:   soldeAvant,
-      nouveau_solde: soldeApres,
+      success:        true,
+      message:        `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`,
+      solde_avant:    soldeAvant,
+      nouveau_solde:  soldeApres,
       transaction_id: tx?.id,
     })
 
