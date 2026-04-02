@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, Building2, User, Phone } from 'lucide-react'
 import Link from 'next/link'
@@ -9,7 +8,6 @@ import Link from 'next/link'
 type Mode = 'login' | 'signup' | 'reset'
 
 export default function PartenairesLoginPage() {
-  const router = useRouter()
   const [mode,       setMode]       = useState<Mode>('login')
   const [email,      setEmail]      = useState('')
   const [password,   setPassword]   = useState('')
@@ -21,20 +19,10 @@ export default function PartenairesLoginPage() {
   const [error,      setError]      = useState('')
   const [success,    setSuccess]    = useState('')
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        const { data } = await supabase
-          .from('partenaires')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .single()
-        // ✅ FIX : window.location.href au lieu de router.replace
-        // router.replace() est SPA → le middleware voit session=null → redirect login → boucle
-        if (data) window.location.href = '/partenaires/dashboard'
-      }
-    })
-  }, [router])
+  // ✅ useEffect de vérification session SUPPRIMÉ intentionnellement.
+  // Il causait une boucle infinie : session détectée → window.location.href /dashboard
+  // → middleware voit pas encore le cookie → redirect /login → re-détecte session → boucle.
+  // La redirection post-login est gérée directement dans handleLogin après signIn réussi.
 
   const reset = () => { setError(''); setSuccess('') }
 
@@ -97,9 +85,8 @@ export default function PartenairesLoginPage() {
 
       setSuccess('✅ Connexion réussie ! Redirection...')
 
-      // ✅ FIX CRITIQUE : window.location.href force un rechargement HTTP complet.
-      // Sans setTimeout ou avec un délai minimal — le cookie est déjà posé par
-      // signInWithPassword avant qu'on arrive ici, pas besoin d'attendre 800ms.
+      // ✅ window.location.href force un rechargement HTTP complet → le navigateur
+      // envoie le cookie dans la requête → le middleware lit la session → OK.
       window.location.href = '/partenaires/dashboard'
 
     } catch (err: any) {
@@ -114,18 +101,9 @@ export default function PartenairesLoginPage() {
     e.preventDefault()
     setLoading(true); reset()
 
-    if (!entreprise.trim()) {
-      setError("Le nom de l'entreprise est requis")
-      setLoading(false); return
-    }
-    if (!nomContact.trim()) {
-      setError('Le nom du contact est requis')
-      setLoading(false); return
-    }
-    if (password.length < 8) {
-      setError('Mot de passe : minimum 8 caractères')
-      setLoading(false); return
-    }
+    if (!entreprise.trim()) { setError("Le nom de l'entreprise est requis"); setLoading(false); return }
+    if (!nomContact.trim()) { setError('Le nom du contact est requis'); setLoading(false); return }
+    if (password.length < 8) { setError('Mot de passe : minimum 8 caractères'); setLoading(false); return }
 
     try {
       const { data: authData, error: authErr } = await supabase.auth.signUp({
@@ -154,66 +132,38 @@ export default function PartenairesLoginPage() {
       const { error: upsertErr } = await supabase
         .from('utilisateurs')
         .upsert({
-          id:          userId,
-          nom:         nomContact.trim(),
-          email:       email.trim().toLowerCase(),
-          telephone:   telephone.trim() || null,
-          role:        'partenaire',
-          est_verifie: false,
-          est_actif:   true,
-          created_at:  new Date().toISOString(),
-          updated_at:  new Date().toISOString(),
+          id: userId, nom: nomContact.trim(), email: email.trim().toLowerCase(),
+          telephone: telephone.trim() || null, role: 'partenaire',
+          est_verifie: false, est_actif: true,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
 
-      if (upsertErr) {
-        console.warn('upsert utilisateurs (non bloquant):', upsertErr.message)
-      }
+      if (upsertErr) console.warn('upsert utilisateurs (non bloquant):', upsertErr.message)
 
-      const session = authData.session
-      const accessToken = session?.access_token
+      const accessToken = authData.session?.access_token
 
       if (!accessToken) {
         setSuccess('🎉 Compte créé ! Votre demande est en cours de validation. Vous pouvez vous connecter maintenant.')
-        setMode('login')
-        setPassword('')
-        setLoading(false)
-        return
+        setMode('login'); setPassword(''); setLoading(false); return
       }
 
-      const { error: partErr } = await supabase
-        .from('partenaires')
-        .insert({
-          user_id:         userId,
-          entreprise:      entreprise.trim(),
-          nom_contact:     nomContact.trim(),
-          telephone:       telephone.trim() || null,
-          email_pro:       email.trim().toLowerCase(),
-          plan:            'starter',
-          statut:          'en_attente',
-          livraisons_max:  30,
-          livraisons_mois: 0,
-          taux_commission: 12.0,
-          date_debut:      new Date().toISOString(),
-        })
+      const { error: partErr } = await supabase.from('partenaires').insert({
+        user_id: userId, entreprise: entreprise.trim(), nom_contact: nomContact.trim(),
+        telephone: telephone.trim() || null, email_pro: email.trim().toLowerCase(),
+        plan: 'starter', statut: 'en_attente', livraisons_max: 30,
+        livraisons_mois: 0, taux_commission: 12.0, date_debut: new Date().toISOString(),
+      })
 
       if (partErr) {
         console.warn('Insert partenaires direct échoué:', partErr.message)
-
         const apiRes = await fetch('/api/partenaires/create-profile', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
           body: JSON.stringify({
-            user_id:     userId,
-            entreprise:  entreprise.trim(),
-            nom_contact: nomContact.trim(),
-            telephone:   telephone.trim() || null,
-            email_pro:   email.trim().toLowerCase(),
+            user_id: userId, entreprise: entreprise.trim(), nom_contact: nomContact.trim(),
+            telephone: telephone.trim() || null, email_pro: email.trim().toLowerCase(),
           }),
         })
-
         if (!apiRes.ok) {
           const errData = await apiRes.json()
           throw new Error(errData.error || 'Erreur lors de la création du profil partenaire.')
@@ -221,11 +171,7 @@ export default function PartenairesLoginPage() {
       }
 
       setSuccess("🎉 Compte créé ! Votre demande est en attente de validation. Vous pouvez vous connecter.")
-      setMode('login')
-      setPassword('')
-      setEntreprise('')
-      setNomContact('')
-      setTelephone('')
+      setMode('login'); setPassword(''); setEntreprise(''); setNomContact(''); setTelephone('')
 
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'inscription")
@@ -244,7 +190,7 @@ export default function PartenairesLoginPage() {
       { redirectTo: `${window.location.origin}/partenaires/reset-password` }
     )
     setLoading(false)
-    if (err) { setError(err.message) }
+    if (err) setError(err.message)
     else {
       setSuccess('📧 Email envoyé ! Vérifiez votre boîte mail.')
       setTimeout(() => { setMode('login'); setSuccess('') }, 5000)
@@ -254,7 +200,6 @@ export default function PartenairesLoginPage() {
   return (
     <div className="min-h-screen bg-[#0A2E8A] flex items-center justify-center p-4">
       <div className="relative w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 mb-4">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#E87722] to-[#F59343] flex items-center justify-center shadow-lg">
@@ -270,17 +215,14 @@ export default function PartenairesLoginPage() {
         </div>
 
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/15 shadow-2xl">
-          {/* Messages */}
           {success && (
             <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/30 flex items-start gap-3 text-green-400 text-sm">
-              <CheckCircle2 size={18} className="shrink-0 mt-0.5"/>
-              <span>{success}</span>
+              <CheckCircle2 size={18} className="shrink-0 mt-0.5"/><span>{success}</span>
             </div>
           )}
           {error && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/30 flex items-start gap-3 text-red-400 text-sm">
-              <AlertCircle size={18} className="shrink-0 mt-0.5"/>
-              <span>{error}</span>
+              <AlertCircle size={18} className="shrink-0 mt-0.5"/><span>{error}</span>
             </div>
           )}
 
@@ -310,26 +252,22 @@ export default function PartenairesLoginPage() {
           {mode === 'login' && (
             <>
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
-                <button
-                  onClick={() => { setMode('login'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all"
-                >
+                <button onClick={() => { setMode('login'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all">
                   Connexion
                 </button>
-                <button
-                  onClick={() => { setMode('signup'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all"
-                >
+                <button onClick={() => { setMode('signup'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all">
                   Inscription
                 </button>
               </div>
-
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
                   <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Email</label>
                   <div className="relative">
                     <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                     <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="vous@entreprise.com"
+                      autoComplete="email"
                       className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
                   </div>
                 </div>
@@ -338,6 +276,7 @@ export default function PartenairesLoginPage() {
                   <div className="relative">
                     <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                     <input type={showPw ? 'text' : 'password'} required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+                      autoComplete="current-password"
                       className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
                     <button type="button" onClick={() => setShowPw(!showPw)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors">
@@ -363,58 +302,37 @@ export default function PartenairesLoginPage() {
           {mode === 'signup' && (
             <>
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
-                <button
-                  onClick={() => { setMode('login'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all"
-                >
+                <button onClick={() => { setMode('login'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all">
                   Connexion
                 </button>
-                <button
-                  onClick={() => { setMode('signup'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all"
-                >
+                <button onClick={() => { setMode('signup'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all">
                   Inscription
                 </button>
               </div>
-
               <form onSubmit={handleSignup} className="space-y-4">
-                <div>
-                  <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Entreprise *</label>
-                  <div className="relative">
-                    <Building2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input type="text" required value={entreprise} onChange={e => setEntreprise(e.target.value)} placeholder="Nom de l'entreprise"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
+                {[
+                  { label:'Entreprise *', value:entreprise, onChange:(v:string)=>setEntreprise(v), type:'text', placeholder:"Nom de l'entreprise", Icon:Building2 },
+                  { label:'Nom du contact *', value:nomContact, onChange:(v:string)=>setNomContact(v), type:'text', placeholder:'Votre nom complet', Icon:User },
+                  { label:'Téléphone', value:telephone, onChange:(v:string)=>setTelephone(v), type:'tel', placeholder:'+226 XX XX XX XX', Icon:Phone },
+                  { label:'Email professionnel *', value:email, onChange:(v:string)=>setEmail(v), type:'email', placeholder:'vous@entreprise.com', Icon:Mail },
+                ].map(({ label, value, onChange, type, placeholder, Icon }) => (
+                  <div key={label}>
+                    <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">{label}</label>
+                    <div className="relative">
+                      <Icon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                      <input type={type} required={label.includes('*')} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Nom du contact *</label>
-                  <div className="relative">
-                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input type="text" required value={nomContact} onChange={e => setNomContact(e.target.value)} placeholder="Votre nom complet"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Téléphone</label>
-                  <div className="relative">
-                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+226 XX XX XX XX"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Email professionnel *</label>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="vous@entreprise.com"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
-                  </div>
-                </div>
+                ))}
                 <div>
                   <label className="block text-white/70 text-xs uppercase tracking-wider font-semibold mb-1.5">Mot de passe *</label>
                   <div className="relative">
                     <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input type={showPw ? 'text' : 'password'} required minLength={8} value={password} onChange={e => setPassword(e.target.value)} placeholder="Minimum 8 caractères"
+                    <input type={showPw ? 'text' : 'password'} required minLength={8} value={password} onChange={e => setPassword(e.target.value)}
+                      placeholder="Minimum 8 caractères" autoComplete="new-password"
                       className="w-full pl-10 pr-11 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-[#E87722] transition-all" />
                     <button type="button" onClick={() => setShowPw(!showPw)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors">
@@ -422,9 +340,7 @@ export default function PartenairesLoginPage() {
                     </button>
                   </div>
                 </div>
-                <p className="text-white/40 text-xs">
-                  En vous inscrivant, votre demande sera examinée par notre équipe. Vous serez notifié par email.
-                </p>
+                <p className="text-white/40 text-xs">En vous inscrivant, votre demande sera examinée par notre équipe.</p>
                 <button type="submit" disabled={loading}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#E87722] to-[#F59343] text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
                   {loading
