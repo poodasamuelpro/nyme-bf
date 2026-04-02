@@ -1,4 +1,4 @@
-'use client' 
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -79,7 +79,7 @@ export default function PartenairesLoginPage() {
         await supabase.auth.signOut()
 
         if (utilData && utilData.role !== 'partenaire') {
-          throw new Error('Ce compte n\'est pas un compte partenaire. Utilisez l\'application NYME.')
+          throw new Error("Ce compte n'est pas un compte partenaire. Utilisez l'application NYME.")
         }
         throw new Error('Aucun compte partenaire trouvé. Veuillez vous inscrire ou contacter nyme.contact@gmail.com')
       }
@@ -94,7 +94,17 @@ export default function PartenairesLoginPage() {
       }
 
       setSuccess('✅ Connexion réussie ! Redirection vers le dashboard...')
-      setTimeout(() => router.push('/partenaires/dashboard'), 800)
+
+      // ✅ FIX CRITIQUE : on utilise window.location.href et non router.push()
+      // router.push() est une navigation côté client (SPA) : le cookie de session
+      // Supabase posé par signInWithPassword n'est pas encore propagé au middleware
+      // Next.js → le middleware voit session=null → redirige vers /partenaires/login
+      // → boucle infinie sans jamais atteindre le dashboard.
+      // window.location.href force un rechargement HTTP complet : le navigateur
+      // envoie tous les cookies dans la requête → le middleware lit la session → OK.
+      setTimeout(() => {
+        window.location.href = '/partenaires/dashboard'
+      }, 800)
 
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion')
@@ -109,7 +119,7 @@ export default function PartenairesLoginPage() {
     setLoading(true); reset()
 
     if (!entreprise.trim()) {
-      setError('Le nom de l\'entreprise est requis')
+      setError("Le nom de l'entreprise est requis")
       setLoading(false); return
     }
     if (!nomContact.trim()) {
@@ -214,7 +224,7 @@ export default function PartenairesLoginPage() {
         }
       }
 
-      setSuccess('🎉 Compte créé avec succès ! Votre demande est en attente de validation par l\'administration. Vous pouvez vous connecter.')
+      setSuccess("🎉 Compte créé avec succès ! Votre demande est en attente de validation par l'administration. Vous pouvez vous connecter.")
       setMode('login')
       setPassword('')
       setEntreprise('')
@@ -222,7 +232,7 @@ export default function PartenairesLoginPage() {
       setTelephone('')
 
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'inscription')
+      setError(err.message || "Erreur lors de l'inscription")
     } finally {
       setLoading(false)
     }
@@ -303,7 +313,6 @@ export default function PartenairesLoginPage() {
           {/* ── LOGIN ── */}
           {mode === 'login' && (
             <>
-              {/* ✅ FIX: classes statiques — plus de comparaison mode === 'login' dans className */}
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
                 <button
                   onClick={() => { setMode('login'); reset() }}
@@ -357,7 +366,6 @@ export default function PartenairesLoginPage() {
           {/* ── SIGNUP ── */}
           {mode === 'signup' && (
             <>
-              {/* ✅ FIX: classes statiques — plus de comparaison mode === 'signup' dans className */}
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
                 <button
                   onClick={() => { setMode('login'); reset() }}
