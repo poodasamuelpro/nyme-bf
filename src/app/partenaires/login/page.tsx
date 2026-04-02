@@ -1,4 +1,4 @@
-'use client' 
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -21,7 +21,6 @@ export default function PartenairesLoginPage() {
   const [error,      setError]      = useState('')
   const [success,    setSuccess]    = useState('')
 
-  // Vérifier si l'utilisateur est déjà connecté en tant que partenaire
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
@@ -48,7 +47,6 @@ export default function PartenairesLoginPage() {
       })
 
       if (authErr) {
-        // Traduction des erreurs Supabase
         if (
           authErr.message.includes('Invalid login credentials') ||
           authErr.message.includes('invalid_credentials')
@@ -65,7 +63,6 @@ export default function PartenairesLoginPage() {
 
       const userId = data.session.user.id
 
-      // Vérifier que c'est bien un partenaire
       const { data: part, error: partErr } = await supabase
         .from('partenaires')
         .select('id, statut')
@@ -73,7 +70,6 @@ export default function PartenairesLoginPage() {
         .single()
 
       if (partErr || !part) {
-        // Vérifier si l'utilisateur existe dans utilisateurs mais pas en tant que partenaire
         const { data: utilData } = await supabase
           .from('utilisateurs')
           .select('role')
@@ -126,8 +122,6 @@ export default function PartenairesLoginPage() {
     }
 
     try {
-      // 1. Créer le compte Supabase Auth avec les metadata correctes
-      //    IMPORTANT: utiliser `data` directement dans le body, pas `options.data`
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -151,8 +145,6 @@ export default function PartenairesLoginPage() {
 
       const userId = authData.user.id
 
-      // 2. S'assurer que le profil utilisateur existe avec le bon rôle
-      //    (le trigger handle_new_user devrait le faire, mais on force par sécurité)
       const { error: upsertErr } = await supabase
         .from('utilisateurs')
         .upsert({
@@ -167,18 +159,14 @@ export default function PartenairesLoginPage() {
           updated_at:  new Date().toISOString(),
         }, { onConflict: 'id' })
 
-      // On ignore l'erreur upsert (RLS peut bloquer mais le trigger a déjà créé)
       if (upsertErr) {
         console.warn('upsert utilisateurs (non bloquant):', upsertErr.message)
       }
 
-      // 3. Créer le profil partenaire via l'API sécurisée (contourne les RLS problématiques)
       const session = authData.session
       const accessToken = session?.access_token
 
       if (!accessToken) {
-        // Si email non confirmé, on demande quand même la création via API
-        // mais on affiche un message différent
         setSuccess('🎉 Compte créé ! Votre demande est en cours de validation. Vous pouvez vous connecter maintenant.')
         setMode('login')
         setPassword('')
@@ -186,7 +174,6 @@ export default function PartenairesLoginPage() {
         return
       }
 
-      // Insérer le profil partenaire directement
       const { error: partErr } = await supabase
         .from('partenaires')
         .insert({
@@ -204,10 +191,8 @@ export default function PartenairesLoginPage() {
         })
 
       if (partErr) {
-        // Si erreur RLS sur INSERT partenaires, essayer via l'API admin
         console.warn('Insert partenaires direct échoué:', partErr.message)
-        
-        // Appel API pour créer le partenaire (contourne RLS)
+
         const apiRes = await fetch('/api/partenaires/create-profile', {
           method: 'POST',
           headers: {
@@ -318,14 +303,18 @@ export default function PartenairesLoginPage() {
           {/* ── LOGIN ── */}
           {mode === 'login' && (
             <>
-              {/* Tabs login/signup */}
+              {/* ✅ FIX: classes statiques — plus de comparaison mode === 'login' dans className */}
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
-                <button onClick={() => { setMode('login'); reset() }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'login' ? 'bg-white text-[#0A2E8A] shadow-sm' : 'text-white/50 hover:text-white'}`}>
+                <button
+                  onClick={() => { setMode('login'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all"
+                >
                   Connexion
                 </button>
-                <button onClick={() => { setMode('signup'); reset() }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'signup' ? 'bg-white text-[#0A2E8A] shadow-sm' : 'text-white/50 hover:text-white'}`}>
+                <button
+                  onClick={() => { setMode('signup'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all"
+                >
                   Inscription
                 </button>
               </div>
@@ -368,14 +357,18 @@ export default function PartenairesLoginPage() {
           {/* ── SIGNUP ── */}
           {mode === 'signup' && (
             <>
-              {/* Tabs */}
+              {/* ✅ FIX: classes statiques — plus de comparaison mode === 'signup' dans className */}
               <div className="flex mb-6 rounded-xl bg-white/5 border border-white/10 p-1">
-                <button onClick={() => { setMode('login'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all">
+                <button
+                  onClick={() => { setMode('login'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold text-white/50 hover:text-white transition-all"
+                >
                   Connexion
                 </button>
-                <button onClick={() => { setMode('signup'); reset() }}
-                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all">
+                <button
+                  onClick={() => { setMode('signup'); reset() }}
+                  className="flex-1 py-2 rounded-lg text-sm font-bold bg-white text-[#0A2E8A] shadow-sm transition-all"
+                >
                   Inscription
                 </button>
               </div>
