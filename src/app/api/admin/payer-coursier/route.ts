@@ -1,4 +1,4 @@
-// src/app/api/admin/payer-coursier/route.ts
+// src/app/api/admin/payer-coursier/route.ts 
 // Paiement d'un coursier — crédite son wallet
 // Structure réelle Supabase :
 //   wallets             : id, user_id, solde, total_gains, total_retraits, updated_at
