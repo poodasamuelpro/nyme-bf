@@ -1,4 +1,4 @@
-// src/app/api/partenaires/create-profile/route.ts
+// src/app/api/partenaires/create-profile/route.ts 
 // Endpoint pour créer le profil partenaire après inscription
 // Utilise SUPABASE_SERVICE_ROLE_KEY pour bypasser les RLS
 // L'utilisateur doit être authentifié (JWT valide)
