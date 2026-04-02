@@ -1,5 +1,5 @@
 // src/app/api/admin/update-partenaire-statut/route.ts
-// Met à jour le statut d'un partenaire (actif / suspendu / rejete / en_attente)
+// Met à jour le statut d'un partenaire (actif / suspendu / rejete / en_attente) 
 // Admin seulement
 
 import { NextResponse } from 'next/server'
