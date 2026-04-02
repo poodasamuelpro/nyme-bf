@@ -1,4 +1,4 @@
-// src/middleware.ts
+// src/middleware.ts 
 // Protège /partenaires/dashboard — redirige vers /partenaires/login si non connecté
 
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
