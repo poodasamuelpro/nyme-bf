@@ -1,5 +1,5 @@
 // src/app/api/admin/wallets/route.ts
-// Gestion des wallets — liste tous les wallets avec infos utilisateurs
+// Gestion des wallets — liste tous les wallets avec infos utilisateurs 
 // Structure réelle Supabase :
 //   wallets : id, user_id, solde, total_gains(?), total_retraits(?), updated_at, created_at(?)
 //   transactions_wallet : id, user_id, type, montant, solde_avant, solde_apres,
