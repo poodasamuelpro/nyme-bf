@@ -1,5 +1,5 @@
 // src/app/api/admin/create-partenaire/route.ts
-// Endpoint réservé admin — crée un compte partenaire avec mdp auto + envoi email
+// Endpoint réservé admin — crée un compte partenaire avec mdp auto + envoi email 
 // Utilise SUPABASE_SERVICE_ROLE_KEY (bypass RLS)
 
 import { NextResponse } from 'next/server'
