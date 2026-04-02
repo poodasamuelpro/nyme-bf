@@ -1,7 +1,7 @@
 // src/app/api/admin/create-partenaire/route.ts
 // Endpoint réservé admin — crée un compte partenaire avec mdp auto + envoi email 
 // Utilise SUPABASE_SERVICE_ROLE_KEY (bypass RLS)
-// Envoi d'email : Resend (prioritaire) → Brevo (fallback)
+// Envoi d'email : Resend (prioritaire) → Brevo (fallback) 
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
