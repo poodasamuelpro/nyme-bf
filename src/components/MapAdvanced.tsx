@@ -1,142 +1,74 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L, { LatLngTuple } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { mapService } from '@/services/map-service'
 import polyline from '@mapbox/polyline'
 
-// Fix default icon issues
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
-
-interface Location {
-  lat: number
-  lng: number
-  label?: string
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  delete L.Icon.Default.prototype._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  })
 }
 
-interface CoursierLocation extends Location {
-  nom?: string
-}
-
+interface Location { lat: number; lng: number; label?: string }
 interface MapAdvancedProps {
-  depart?: Location
-  arrivee?: Location
-  coursier?: CoursierLocation
-  route?: any
-  onLocationSelect?: (lat: number, lng: number, label: string) => void
-  zoom?: number
+  depart?: Location; arrivee?: Location; coursier?: Location & { nom?: string };
+  route?: any; onLocationSelect?: (lat: number, lng: number, label: string) => void; zoom?: number;
 }
-
-const DEFAULT_CENTER: LatLngTuple = [12.3714, -1.5197]
-const DEFAULT_ZOOM = 13
 
 const RecenterAutomatically = ({ center, zoom }: { center: LatLngTuple; zoom: number }) => {
   const map = useMap()
-  useEffect(() => {
-    map.setView(center, zoom)
-  }, [center, zoom, map])
+  useEffect(() => { map.setView(center, zoom) }, [center, zoom, map])
   return null
 }
 
-// ✅ Composant pour gérer le clic sur la carte (correction)
 const MapClickHandler = ({ onClick }: { onClick?: (e: L.LeafletMouseEvent) => void }) => {
   const map = useMap()
   useEffect(() => {
     if (!onClick) return
     map.on('click', onClick)
-    return () => {
-      map.off('click', onClick)
-    }
+    return () => { map.off('click', onClick) }
   }, [map, onClick])
   return null
 }
 
-const MapAdvanced: React.FC<MapAdvancedProps> = ({
-  depart,
-  arrivee,
-  coursier,
-  route,
-  onLocationSelect,
-  zoom = DEFAULT_ZOOM,
-}) => {
-  const [mapCenter, setMapCenter] = useState<LatLngTuple>(DEFAULT_CENTER)
+const MapAdvanced: React.FC<MapAdvancedProps> = ({ depart, arrivee, coursier, route, onLocationSelect, zoom = 13 }) => {
+  const [mapCenter, setMapCenter] = useState<LatLngTuple>([12.3714, -1.5197])
   const mapRef = useRef<L.Map | null>(null)
 
   useEffect(() => {
-    if (depart && arrivee) {
-      const bounds = L.latLngBounds([depart.lat, depart.lng], [arrivee.lat, arrivee.lng])
-      const center = bounds.getCenter()
-      setMapCenter([center.lat, center.lng])
-    } else if (depart) {
-      setMapCenter([depart.lat, depart.lng])
-    } else if (coursier) {
-      setMapCenter([coursier.lat, coursier.lng])
-    }
-  }, [depart, arrivee, coursier])
+    if (depart) setMapCenter([depart.lat, depart.lng])
+    else if (coursier) setMapCenter([coursier.lat, coursier.lng])
+  }, [depart, coursier])
 
-  // ✅ Correction : geocode retourne un tableau
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
-    if (onLocationSelect) {
-      try {
-        const results = await mapService.geocode(`${e.latlng.lat},${e.latlng.lng}`)
-        if (results && results.length > 0 && results[0].address) {
-          onLocationSelect(e.latlng.lat, e.latlng.lng, results[0].address)
-        } else {
-          onLocationSelect(e.latlng.lat, e.latlng.lng, `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`)
-        }
-      } catch (error) {
-        console.error("Error during reverse geocoding:", error)
-        onLocationSelect(e.latlng.lat, e.latlng.lng, `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`)
-      }
-    }
+    if (!onLocationSelect) return
+    const results = await mapService.geocode(`${e.latlng.lat},${e.latlng.lng}`)
+    const address = results[0]?.address || `Point (${e.latlng.lat.toFixed(4)})`
+    onLocationSelect(e.latlng.lat, e.latlng.lng, address)
   }
 
-  const decodedPolyline = route?.geometry ? polyline.decode(route.geometry) : []
+  const polylinePoints = useMemo(() => {
+    if (!route) return []
+    if (Array.isArray(route.polyline)) return route.polyline
+    if (typeof route.geometry === 'string') return polyline.decode(route.geometry)
+    return []
+  }, [route])
 
   return (
-    <MapContainer
-      center={mapCenter}
-      zoom={zoom}
-      scrollWheelZoom={true}
-      style={{ height: '100%', width: '100%' }}
-      ref={mapRef}
-    >
-      {/* ✅ Correction : onClick remplacé par MapClickHandler */}
+    <MapContainer center={mapCenter} zoom={zoom} scrollWheelZoom style={{ height: '100%', width: '100%' }} ref={mapRef}>
       <MapClickHandler onClick={handleMapClick} />
       <RecenterAutomatically center={mapCenter} zoom={zoom} />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-
-      {depart && (
-        <Marker position={[depart.lat, depart.lng]}>
-          <Popup>{depart.label || 'Point de départ'}</Popup>
-        </Marker>
-      )}
-
-      {arrivee && (
-        <Marker position={[arrivee.lat, arrivee.lng]}>
-          <Popup>{arrivee.label || "Point d'arrivée"}</Popup>
-        </Marker>
-      )}
-
-      {coursier && (
-        <Marker position={[coursier.lat, coursier.lng]}>
-          <Popup>{coursier.nom || 'Coursier'}</Popup>
-        </Marker>
-      )}
-
-      {decodedPolyline.length > 0 && (
-        <Polyline positions={decodedPolyline} color="#1a73e8" weight={5} />
-      )}
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      {depart && <Marker position={[depart.lat, depart.lng]}><Popup>{depart.label || 'Départ'}</Popup></Marker>}
+      {arrivee && <Marker position={[arrivee.lat, arrivee.lng]}><Popup>{arrivee.label || 'Arrivée'}</Popup></Marker>}
+      {polylinePoints.length > 0 && <Polyline positions={polylinePoints} color="#1a73e8" weight={5} />}
     </MapContainer>
   )
 }
