@@ -51,6 +51,7 @@ class MapService {
     if (!this.googleLimitReached && this.googleKeys.length > 0) {
       try { return await this.geocodeGoogle(address) } catch { /* fallthrough */ }
     }
+    // Fallback OSRM / Default
     return { lat: 12.3547, lng: -1.5247, address, provider: 'osrm' }
   }
 
