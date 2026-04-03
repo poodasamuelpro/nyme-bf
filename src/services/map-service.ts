@@ -1,4 +1,4 @@
-import { LatLngTuple } from 'leaflet'
+import type { LatLngTuple } from 'leaflet'
 import axios from 'axios'
 
 interface RouteData {
