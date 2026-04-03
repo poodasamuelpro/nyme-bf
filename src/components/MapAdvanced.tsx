@@ -1,8 +1,8 @@
-// src/components/MapAdvanced.tsx
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { mapService } from '@/services/map-service'
 import type { RouteResult } from '@/services/map-service'
+import 'leaflet/dist/leaflet.css'
 
 interface Location {
   lat: number
@@ -36,8 +36,8 @@ export default function MapAdvanced({ depart, arrivee, coursier, route, onLocati
 
     const initMap = async () => {
       const L = (await import('leaflet')).default
-      await import('leaflet/dist/leaflet.css')
 
+      // Fix pour les icônes Leaflet par défaut dans Next.js
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (L.Icon.Default.prototype as any)._getIconUrl
       L.Icon.Default.mergeOptions({
@@ -51,7 +51,7 @@ export default function MapAdvanced({ depart, arrivee, coursier, route, onLocati
         mapInstance.current = null
       }
 
-      // Calculer le centre
+      // Calculer le centre de la carte
       let center: [number, number] = DEFAULT_CENTER
       if (depart && arrivee) {
         center = [(depart.lat + arrivee.lat) / 2, (depart.lng + arrivee.lng) / 2]
@@ -108,15 +108,15 @@ export default function MapAdvanced({ depart, arrivee, coursier, route, onLocati
         map.fitBounds(L.latLngBounds(points).pad(0.2))
       }
 
-      // Click handler CORRIGÉ
+      // Click handler CORRIGÉ (Fix capture e7237edd)
       if (onLocationSelect) {
         map.on('click', async (e: L.LeafletMouseEvent) => {
           try {
-            // Ici, mapService.geocode renvoie un objet GeocodingResult, pas un tableau
+            // mapService.geocode renvoie un objet direct (GeocodingResult)
             const result = await mapService.geocode(`${e.latlng.lat},${e.latlng.lng}`)
             
-            // On utilise directement result.address
-            const address = result.address || `Point (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
+            // Accès direct à result.address au lieu de result[0].address
+            const address = result?.address || `Point (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`
             onLocationSelect(e.latlng.lat, e.latlng.lng, address)
           } catch {
             onLocationSelect(e.latlng.lat, e.latlng.lng, `Point (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`)
