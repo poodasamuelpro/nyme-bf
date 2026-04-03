@@ -17,7 +17,6 @@ export const supabase = createClient(URL, ANON, {
 
 // ── Types alignés avec le schéma NYME ─────────────────────────────
 
-// AJOUT : Type pour la négociation de prix
 export interface PropositionPrix {
   id: string
   livraison_id: string
@@ -28,9 +27,10 @@ export interface PropositionPrix {
   created_at: string
 }
 
-export type UtilisateurRow = {
+// CORRECTION : Renommé de UtilisateurRow vers Utilisateur pour matcher l'import du build
+export type Utilisateur = {
   id:           string
-  nom:          string
+  nom:          string | null
   telephone:    string | null
   email:        string | null
   role:         'client' | 'coursier' | 'admin' | 'partenaire'
@@ -42,6 +42,24 @@ export type UtilisateurRow = {
   fcm_token:    string | null
   created_at:   string
   updated_at:   string
+}
+
+// AJOUT : Type Livraison manquant qui cause l'échec du build
+export type Livraison = {
+  id:                string
+  client_id:         string
+  coursier_id:       string | null
+  statut:            string
+  adresse_depart:    string
+  adresse_arrivee:   string
+  lat_depart:        number | null
+  lng_depart:        number | null
+  lat_arrivee:       number | null
+  lng_arrivee:       number | null
+  prix_calcule:      number | null
+  prix_final:        number | null
+  created_at:        string
+  updated_at:        string
 }
 
 export type PartenaireRow = {
