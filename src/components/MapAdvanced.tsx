@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
-import L, { LatLngTuple } from 'leaflet'  // ← AJOUT : import de LatLngTuple
+import L, { LatLngTuple } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { mapService } from '@/services/map-service'
 
@@ -27,12 +27,12 @@ interface MapAdvancedProps {
   depart?: Location
   arrivee?: Location
   coursier?: CoursierLocation
-  route?: any // Route data from mapService
+  route?: any
   onLocationSelect?: (lat: number, lng: number, label: string) => void
   zoom?: number
 }
 
-const DEFAULT_CENTER: LatLngTuple = [12.3714, -1.5197] // Ouagadougou, Burkina Faso
+const DEFAULT_CENTER: LatLngTuple = [12.3714, -1.5197]
 const DEFAULT_ZOOM = 13
 
 const RecenterAutomatically = ({ center, zoom }: { center: LatLngTuple; zoom: number }) => {
@@ -57,7 +57,8 @@ const MapAdvanced: React.FC<MapAdvancedProps> = ({
   useEffect(() => {
     if (depart && arrivee) {
       const bounds = L.latLngBounds([depart.lat, depart.lng], [arrivee.lat, arrivee.lng])
-      setMapCenter(bounds.getCenter().toArray() as LatLngTuple)
+      const center = bounds.getCenter()
+      setMapCenter([center.lat, center.lng])
     } else if (depart) {
       setMapCenter([depart.lat, depart.lng])
     } else if (coursier) {
@@ -108,7 +109,7 @@ const MapAdvanced: React.FC<MapAdvancedProps> = ({
 
       {arrivee && (
         <Marker position={[arrivee.lat, arrivee.lng]}>
-          <Popup>{arrivee.label || 'Point d\'arrivée'}</Popup>
+          <Popup>{arrivee.label || "Point d'arrivée"}</Popup>
         </Marker>
       )}
 
