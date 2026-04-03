@@ -1,4 +1,3 @@
-// src/app/coursier/mission/[id]/page.tsx
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -37,26 +36,44 @@ export default function MissionPage() {
     if (!session) { router.push('/login'); return }
     setCurrentUserId(session.user.id)
 
-    const { data: missionData } = await supabase
+    // Modification pour pointer sur 'utilisateurs' via client_id
+    const { data: missionData, error: missionError } = await supabase
       .from('livraisons')
-      .select('*, client:client_id(id, nom, avatar_url, telephone, whatsapp)')
-      .eq('id', missionId).single()
+      .select('*, client:client_id(*)') 
+      .eq('id', missionId)
+      .single()
 
-    if (!missionData) { router.push('/coursier/dashboard-new'); return }
+    if (missionError || !missionData) { 
+      toast.error("Mission introuvable")
+      router.push('/coursier/dashboard-new')
+      return 
+    }
+
     setMission(missionData as MissionWithDetails)
 
+    // Utilisation des noms corrigés : depart_lat / arrivee_lat
     if (missionData.depart_lat && missionData.arrivee_lat) {
       try {
-        const r = await mapService.getRoute(missionData.depart_lat, missionData.depart_lng, missionData.arrivee_lat, missionData.arrivee_lng)
+        const r = await mapService.getRoute(
+          missionData.depart_lat, 
+          missionData.depart_lng, 
+          missionData.arrivee_lat, 
+          missionData.arrivee_lng
+        )
         setRoute(r)
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error("Erreur calcul itinéraire:", err)
+      }
     }
 
     const convMessages = await communicationService.getConversation(session.user.id, missionData.client_id, missionId)
     setMessages(convMessages)
 
     if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }))
+      navigator.geolocation.getCurrentPosition(
+        pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        err => console.error("Erreur géo:", err)
+      )
     }
     setLoading(false)
   }, [missionId, router])
@@ -68,7 +85,9 @@ export default function MissionPage() {
     try {
       await communicationService.sendMessage(currentUserId, mission.client_id, newMessage.trim(), missionId)
       setNewMessage('')
-      await loadData()
+      // On recharge juste les messages pour éviter un flash de chargement complet
+      const convMessages = await communicationService.getConversation(currentUserId, mission.client_id, missionId)
+      setMessages(convMessages)
     } catch { toast.error("Erreur lors de l'envoi") }
   }
 
@@ -85,7 +104,7 @@ export default function MissionPage() {
       toast.success(newStatut === 'livree' ? '🎉 Livraison confirmée !' : 'Statut mis à jour')
       if (newStatut === 'livree') router.push('/coursier/dashboard-new')
       else await loadData()
-    } catch { toast.error('Erreur') }
+    } catch { toast.error('Erreur lors de la mise à jour') }
     finally { setActionInProgress(false) }
   }
 
