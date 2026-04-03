@@ -34,17 +34,16 @@ export default function NouvelleLivraisonPage() {
 
   useEffect(() => {
     if (depart && arrivee) {
-      // Calculer le prix basé sur la distance
       mapService.getRoute(depart.lat, depart.lng, arrivee.lat, arrivee.lng)
         .then(route => {
-          let basePrice = 800 // Prix de base
-          let pricePerKm = 200 // Prix par km
+          let basePrice = 800
+          let pricePerKm = 200
           let calculated = basePrice + (route.distance * pricePerKm)
 
           if (typeCourse === 'urgent') {
-            calculated *= 1.3 // +30% pour urgent
+            calculated *= 1.3
           } else if (typeCourse === 'programmed') {
-            calculated *= 0.9 // -10% pour programmé
+            calculated *= 0.9
           }
           setPrixCalcule(Math.round(calculated))
         })
@@ -104,8 +103,8 @@ export default function NouvelleLivraisonPage() {
 
       if (error) throw error
 
-      // Créer la proposition de prix initiale du client
-      await priceNegotiationService.createProposition(livraison.id, session.user.id, Number(prixProposeClient))
+      // ✅ CORRECTION ICI : proposePriceAsClient au lieu de createProposition
+      await priceNegotiationService.proposePriceAsClient(livraison.id, session.user.id, Number(prixProposeClient))
 
       toast.success('Livraison créée avec succès !')
       router.push(`/client/suivi/${livraison.id}`)
@@ -126,13 +125,12 @@ export default function NouvelleLivraisonPage() {
               ←
             </button>
             <h1 className="font-bold text-lg">Nouvelle Livraison - Étape {step}/5</h1>
-            <div className="w-9 h-9"></div> {/* Placeholder for alignment */}
+            <div className="w-9 h-9"></div>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24">
-        {/* Étape 1: Type de course */}
         {step === 1 && (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">Quel type de course ?</h2>
@@ -161,7 +159,6 @@ export default function NouvelleLivraisonPage() {
           </div>
         )}
 
-        {/* Étape 2: Adresses */}
         {step === 2 && (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">Où récupérer et livrer ?</h2>
@@ -197,7 +194,6 @@ export default function NouvelleLivraisonPage() {
           </div>
         )}
 
-        {/* Étape 3: Détails du colis */}
         {step === 3 && (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">Détails du colis et destinataire</h2>
@@ -255,7 +251,6 @@ export default function NouvelleLivraisonPage() {
           </div>
         )}
 
-        {/* Étape 4: Négociation de prix */}
         {step === 4 && (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">Proposez votre prix</h2>
@@ -278,7 +273,6 @@ export default function NouvelleLivraisonPage() {
           </div>
         )}
 
-        {/* Étape 5: Confirmation */}
         {step === 5 && (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">Confirmez votre livraison</h2>
