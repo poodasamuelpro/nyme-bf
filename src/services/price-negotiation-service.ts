@@ -1,19 +1,23 @@
 /**
  * Service de négociation de prix (style InDrive)
- * Permet aux clients de proposer un prix et aux coursiers de contre-proposer
  */
 
 import { supabase } from '@/lib/supabase'
 import type { PropositionPrix } from '@/lib/supabase'
 
-export interface PriceProposal extends PropositionPrix {
+export interface PriceProposal {
+  id: string
+  livraison_id: string
+  auteur_id: string
+  role_auteur: 'client' | 'coursier'
+  montant: number
+  statut: 'en_attente' | 'accepte' | 'refuse'
+  created_at: string
   auteur?: { nom: string; avatar_url?: string }
 }
 
 class PriceNegotiationService {
-  /**
-   * Le client propose un prix initial
-   */
+
   async proposePriceAsClient(
     livraison_id: string,
     client_id: string,
@@ -21,13 +25,7 @@ class PriceNegotiationService {
   ): Promise<PropositionPrix> {
     const { data, error } = await supabase
       .from('propositions_prix')
-      .insert({
-        livraison_id,
-        auteur_id: client_id,
-        role_auteur: 'client',
-        montant,
-        statut: 'en_attente',
-      })
+      .insert({ livraison_id, auteur_id: client_id, role_auteur: 'client', montant, statut: 'en_attente' })
       .select()
       .single()
 
@@ -35,9 +33,6 @@ class PriceNegotiationService {
     return data as PropositionPrix
   }
 
-  /**
-   * Le coursier propose un prix (contre-proposition)
-   */
   async proposePriceAsCourier(
     livraison_id: string,
     coursier_id: string,
@@ -45,13 +40,7 @@ class PriceNegotiationService {
   ): Promise<PropositionPrix> {
     const { data, error } = await supabase
       .from('propositions_prix')
-      .insert({
-        livraison_id,
-        auteur_id: coursier_id,
-        role_auteur: 'coursier',
-        montant,
-        statut: 'en_attente',
-      })
+      .insert({ livraison_id, auteur_id: coursier_id, role_auteur: 'coursier', montant, statut: 'en_attente' })
       .select()
       .single()
 
@@ -59,9 +48,6 @@ class PriceNegotiationService {
     return data as PropositionPrix
   }
 
-  /**
-   * Récupère toutes les propositions pour une livraison
-   */
   async getProposalsForDelivery(livraison_id: string): Promise<PriceProposal[]> {
     const { data, error } = await supabase
       .from('propositions_prix')
@@ -73,31 +59,24 @@ class PriceNegotiationService {
     return (data || []) as PriceProposal[]
   }
 
-  /**
-   * Le client accepte une proposition de prix
-   */
   async acceptProposal(
     livraison_id: string,
     proposition_id: string,
     montant: number
   ): Promise<void> {
-    const { error: updateError } = await supabase
+    const { error: e1 } = await supabase
       .from('propositions_prix')
       .update({ statut: 'accepte' })
       .eq('id', proposition_id)
+    if (e1) throw e1
 
-    if (updateError) throw updateError
-
-    const { error: livraisonError } = await supabase
+    const { error: e2 } = await supabase
       .from('livraisons')
-      .update({
-        prix_final: montant,
-        statut_paiement: 'en_attente',
-      })
+      .update({ prix_final: montant, statut_paiement: 'en_attente' })
       .eq('id', livraison_id)
+    if (e2) throw e2
 
-    if (livraisonError) throw livraisonError
-
+    // Refuser les autres propositions
     await supabase
       .from('propositions_prix')
       .update({ statut: 'refuse' })
@@ -105,36 +84,47 @@ class PriceNegotiationService {
       .neq('id', proposition_id)
   }
 
-  /**
-   * Calcule le prix recommandé basé sur la distance et le type de course
-   * Alignement avec les types de l'interface : 'immediate' | 'urgent' | 'programmed'
-   */
-  calculateRecommendedPrice(
-    distanceKm: number,
-    type: 'immediate' | 'urgent' | 'programmed'
-  ): number {
-    let price = 800
-    price += distanceKm * 200
-
-    if (type === 'urgent') {
-      price *= 1.3
-    } else if (type === 'programmed') {
-      price *= 0.9
-    }
-
-    return Math.round(price)
-  }
-
-  /**
-   * Refuse une proposition de prix
-   */
   async rejectProposal(proposition_id: string): Promise<void> {
     const { error } = await supabase
       .from('propositions_prix')
       .update({ statut: 'refuse' })
       .eq('id', proposition_id)
+    if (error) throw error
+  }
+
+  async getPendingProposalsForCourier(coursier_id: string): Promise<PriceProposal[]> {
+    const { data, error } = await supabase
+      .from('propositions_prix')
+      .select('*, livraison:livraison_id(*, client:client_id(nom, avatar_url))')
+      .eq('auteur_id', coursier_id)
+      .eq('statut', 'en_attente')
+      .order('created_at', { ascending: false })
 
     if (error) throw error
+    return (data || []) as PriceProposal[]
+  }
+
+  calculateRecommendedPrice(
+    distanceKm: number,
+    type: 'immediate' | 'urgente' | 'programmee'
+  ): number {
+    let price = 800 + distanceKm * 200
+    if (type === 'urgente') price *= 1.3
+    else if (type === 'programmee') price *= 0.9
+    return Math.round(price)
+  }
+
+  validateProposal(
+    montant: number,
+    prixCalcule: number
+  ): { valid: boolean; message?: string; ratio?: number } {
+    if (montant <= 0) return { valid: false, message: 'Le montant doit être positif' }
+
+    const ratio = montant / prixCalcule
+    if (ratio < 0.5) return { valid: false, message: `Minimum ${Math.round(prixCalcule * 0.5)} XOF`, ratio }
+    if (ratio > 2.0) return { valid: false, message: `Maximum ${Math.round(prixCalcule * 2.0)} XOF`, ratio }
+
+    return { valid: true, ratio }
   }
 }
 
