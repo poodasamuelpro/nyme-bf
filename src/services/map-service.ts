@@ -85,7 +85,7 @@ class MapService {
         } catch (error) {
           console.warn('Google Maps route failed, trying next key or OSRM:', error)
           googleKey = this.getNextGoogleApiKey()
-          if (googleKey === this.googleApiKeys[0]) { // Looped through all keys
+          if (googleKey === this.googleApiKeys[0]) {
             googleKey = null
           }
         }
@@ -164,14 +164,14 @@ class MapService {
         } catch (error) {
           console.warn('Google Maps geocode failed, trying next key:', error)
           googleKey = this.getNextGoogleApiKey()
-          if (googleKey === this.googleApiKeys[0]) { // Looped through all keys
+          if (googleKey === this.googleApiKeys[0]) {
             googleKey = null
           }
         }
       }
     }
 
-    // Fallback to OpenStreetMap Nominatim (public API, no key needed)
+    // Fallback to OpenStreetMap Nominatim
     try {
       const response = await axios.get(
         `https://nominatim.openstreetmap.org/search`,
@@ -195,8 +195,6 @@ class MapService {
     throw new Error('Unable to geocode address from any map service.')
   }
 
-  // Helper function to encode a list of LatLng points into a polyline string
-  // Used for OSRM and Mapbox which return GeoJSON coordinates
   private encodePolyline(coordinates: [number, number][]): string {
     let encoded = '';
     let prevLat = 0;
