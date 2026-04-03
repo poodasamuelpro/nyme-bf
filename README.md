@@ -10,30 +10,6 @@
 - **Animations** : CSS natif + Framer Motion ready
 - **Déploiement** : Vercel
 
-## Structure du projet
-
-```
-src/
-├── app/
-│   ├── layout.tsx              # Layout racine avec SEO
-│   ├── page.tsx                # Page d'accueil
-│   ├── globals.css             # Styles globaux + thème NYME
-│   ├── contact/                # Page contact
-│   ├── service-client/         # Centre d'aide & FAQ
-│   ├── politique-confidentialite/  # RGPD / vie privée
-│   └── politique-application/  # CGU / mentions légales
-├── components/
-│   ├── Header.tsx              # Navigation principale
-│   ├── Footer.tsx              # Pied de page complet
-│   └── home/                   # Sections homepage
-│       ├── HeroSection.tsx
-│       ├── StatsSection.tsx
-│       ├── FeaturesSection.tsx
-│       ├── HowItWorksSection.tsx
-│       ├── ForCouriersSection.tsx
-│       ├── PaymentSection.tsx
-│       └── DownloadSection.tsx
-```
 
 ## Lancement en développement
 
@@ -69,15 +45,7 @@ Aucune variable d'environnement requise pour le site vitrine.
 | Orange | `#F97316` | CTA principal, accent |
 | Rouge | `#DC2626` | Urgence, gradient |
 
-## Pages
-
-| Route | Description |
-|-------|-------------|
-| `/` | Page d'accueil avec toutes les sections |
-| `/contact` | Formulaire de contact + informations |
-| `/service-client` | FAQ interactive + liens support |
-| `/politique-confidentialite` | Politique de confidentialité RGPD |
-| `/politique-application` | CGU & Mentions légales |
+## 
 
 ---
 
