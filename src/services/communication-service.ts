@@ -1,158 +1,171 @@
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
 
-interface Message {
-    id: string;
-    expediteur_id: string;
-    destinataire_id: string;
-    livraison_id?: string;
-    contenu: string;
-    created_at: string;
-    lu: boolean;
+export interface Message {
+  id: string;
+  expediteur_id: string;
+  destinataire_id: string;
+  livraison_id?: string;
+  contenu: string;
+  created_at: string;
+  lu: boolean;
 }
 
-interface Conversation {
-    interlocuteur_id: string;
-    interlocuteur_nom: string;
-    dernier_message: string;
-    dernier_message_date: string;
-    non_lus: number;
+export interface Conversation {
+  interlocuteur_id: string;
+  interlocuteur_nom: string;
+  dernier_message: string;
+  dernier_message_date: string;
+  messages_non_lus: number; // renommé pour cohérence avec les pages
 }
 
 class CommunicationService {
 
-    /**
-     * Envoie un message entre deux utilisateurs, potentiellement lié à une livraison.
-     * @param expediteurId - L\"ID de l\"expéditeur.
-     * @param destinataireId - L\"ID du destinataire.
-     * @param contenu - Le contenu du message.
-     * @param livraisonId - L\"ID de la livraison (optionnel).
-     */
-    async sendMessage(expediteurId: string, destinataireId: string, contenu: string, livraisonId?: string): Promise<Message> {
-        const { data, error } = await supabase
-            .from("messages")
-            .insert({
-                expediteur_id: expediteurId,
-                destinataire_id: destinataireId,
-                livraison_id: livraisonId,
-                contenu: contenu,
-            })
-            .select()
-            .single();
+  /**
+   * Envoie un message entre deux utilisateurs.
+   */
+  async sendMessage(
+    expediteurId: string,
+    destinataireId: string,
+    contenu: string,
+    livraisonId?: string
+  ): Promise<Message> {
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        expediteur_id: expediteurId,
+        destinataire_id: destinataireId,
+        livraison_id: livraisonId ?? null,
+        contenu,
+      })
+      .select()
+      .single();
 
-        if (error) {
-            console.error("Error sending message:", error);
-            throw new Error("Impossible d\"envoyer le message.");
-        }
-        return data;
+    if (error) {
+      console.error("[CommunicationService] sendMessage:", error);
+      throw new Error("Impossible d'envoyer le message.");
+    }
+    return data;
+  }
+
+  /**
+   * Récupère tous les messages d'une conversation entre deux utilisateurs.
+   * livraisonId est optionnel — si absent, récupère tous les messages entre les deux users.
+   */
+  async getConversation(
+    userId1: string,
+    userId2: string,
+    livraisonId?: string
+  ): Promise<Message[]> {
+    let query = supabase
+      .from("messages")
+      .select("*")
+      .or(
+        `and(expediteur_id.eq.${userId1},destinataire_id.eq.${userId2}),and(expediteur_id.eq.${userId2},destinataire_id.eq.${userId1})`
+      )
+      .order("created_at", { ascending: true });
+
+    if (livraisonId) {
+      query = query.eq("livraison_id", livraisonId);
     }
 
-    /**
-     * Récupère tous les messages d\"une conversation entre deux utilisateurs pour une livraison donnée.
-     * @param userId1 - L\"ID du premier utilisateur.
-     * @param userId2 - L\"ID du second utilisateur.
-     * @param livraisonId - L\"ID de la livraison.
-     */
-    async getConversation(userId1: string, userId2: string, livraisonId: string): Promise<Message[]> {
-        const { data, error } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("livraison_id", livraisonId)
-            .or(`(expediteur_id.eq.${userId1},destinataire_id.eq.${userId2}),(expediteur_id.eq.${userId2},destinataire_id.eq.${userId1})`)
-            .order("created_at", { ascending: true });
+    const { data, error } = await query;
 
-        if (error) {
-            console.error("Error fetching conversation:", error);
-            throw new Error("Impossible de récupérer la conversation.");
-        }
-        return data || [];
+    if (error) {
+      console.error("[CommunicationService] getConversation:", error);
+      throw new Error("Impossible de récupérer la conversation.");
+    }
+    return data || [];
+  }
+
+  /**
+   * Marque les messages reçus comme lus.
+   */
+  async markMessagesAsRead(
+    destinataireId: string,
+    expediteurId: string,
+    livraisonId?: string
+  ): Promise<void> {
+    let query = supabase
+      .from("messages")
+      .update({ lu: true })
+      .eq("expediteur_id", expediteurId)
+      .eq("destinataire_id", destinataireId)
+      .eq("lu", false);
+
+    if (livraisonId) {
+      query = query.eq("livraison_id", livraisonId);
     }
 
-    /**
-     * Marque les messages comme lus.
-     * @param expediteurId - L\"ID de l\"expéditeur (messages à marquer comme lus).
-     * @param destinataireId - L\"ID du destinataire (utilisateur actuel).
-     * @param livraisonId - L\"ID de la livraison (optionnel).
-     */
-    async markMessagesAsRead(expediteurId: string, destinataireId: string, livraisonId?: string): Promise<void> {
-        let query = supabase
-            .from("messages")
-            .update({ lu: true })
-            .eq("expediteur_id", expediteurId)
-            .eq("destinataire_id", destinataireId)
-            .eq("lu", false);
+    const { error } = await query;
 
-        if (livraisonId) {
-            query = query.eq("livraison_id", livraisonId);
-        }
+    if (error) {
+      console.error("[CommunicationService] markMessagesAsRead:", error);
+      // On ne throw pas ici pour ne pas bloquer l'UI
+    }
+  }
 
-        const { error } = await query;
+  /**
+   * Récupère la liste des conversations d'un utilisateur.
+   * Alias getUserConversations pour compatibilité.
+   */
+  async getUserConversations(userId: string): Promise<Conversation[]> {
+    return this.getConversationsList(userId);
+  }
 
-        if (error) {
-            console.error("Error marking messages as read:", error);
-            throw new Error("Impossible de marquer les messages comme lus.");
-        }
+  async getConversationsList(userId: string): Promise<Conversation[]> {
+    const { data: messages, error } = await supabase
+      .from("messages")
+      .select(
+        `*,
+        expediteur:expediteur_id(id, nom, avatar_url),
+        destinataire:destinataire_id(id, nom, avatar_url)`
+      )
+      .or(`expediteur_id.eq.${userId},destinataire_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[CommunicationService] getConversationsList:", error);
+      throw new Error("Impossible de récupérer la liste des conversations.");
     }
 
-    /**
-     * Récupère la liste des conversations pour un utilisateur.
-     * @param userId - L\"ID de l\"utilisateur.
-     */
-    async getConversationsList(userId: string): Promise<Conversation[]> {
-        // Cette fonction est plus complexe car elle nécessite des agrégations.
-        // Pour simplifier, nous allons récupérer les messages et les regrouper côté client
-        // ou utiliser une fonction Supabase RPC/Vue matérialisée si la performance est critique.
+    const conversationsMap = new Map<string, Conversation>();
 
-        const { data: messages, error } = await supabase
-            .from("messages")
-            .select(
-                `*,
-                expediteur:expediteur_id(nom, avatar_url),
-                destinataire:destinataire_id(nom, avatar_url)`
-            )
-            .or(`expediteur_id.eq.${userId},destinataire_id.eq.${userId}`)
-            .order("created_at", { ascending: false });
+    for (const msg of messages || []) {
+      const isExpéditeur = msg.expediteur_id === userId;
+      const interlocuteur = isExpéditeur ? msg.destinataire : msg.expediteur;
+      const interlocuteurId: string | undefined = interlocuteur?.id;
 
-        if (error) {
-            console.error("Error fetching messages for conversations list:", error);
-            throw new Error("Impossible de récupérer la liste des conversations.");
-        }
+      if (!interlocuteurId) continue;
 
-        const conversationsMap = new Map<string, Conversation>();
+      if (!conversationsMap.has(interlocuteurId)) {
+        const nonLusCount = (messages || []).filter(
+          (m: Message) =>
+            m.expediteur_id === interlocuteurId &&
+            m.destinataire_id === userId &&
+            !m.lu
+        ).length;
 
-        for (const msg of messages || []) {
-            const interlocuteur = msg.expediteur_id === userId ? msg.destinataire : msg.expediteur;
-            const interlocuteurId = interlocuteur?.id;
-
-            if (interlocuteurId && !conversationsMap.has(interlocuteurId)) {
-                // Compter les messages non lus pour cette conversation
-                const nonLusCount = messages.filter(
-                    (m: Message) => m.expediteur_id === interlocuteurId && m.destinataire_id === userId && !m.lu
-                ).length;
-
-                conversationsMap.set(interlocuteurId, {
-                    interlocuteur_id: interlocuteurId,
-                    interlocuteur_nom: interlocuteur?.nom || "Inconnu",
-                    dernier_message: msg.contenu,
-                    dernier_message_date: msg.created_at,
-                    non_lus: nonLusCount,
-                });
-            }
-        }
-
-        return Array.from(conversationsMap.values());
+        conversationsMap.set(interlocuteurId, {
+          interlocuteur_id: interlocuteurId,
+          interlocuteur_nom: interlocuteur?.nom ?? "Inconnu",
+          dernier_message: msg.contenu,
+          dernier_message_date: msg.created_at,
+          messages_non_lus: nonLusCount,
+        });
+      }
     }
 
-    /**
-     * Génère un lien WhatsApp pour un numéro donné.
-     * @param phoneNumber - Le numéro de téléphone.
-     */
-    getWhatsAppLink(phoneNumber: string): string {
-        // Supprime tous les caractères non numériques et ajoute le code pays si manquant
-        const cleanedNumber = phoneNumber.replace(/\D/g, "");
-        // Supposons que le code pays par défaut est +226 pour le Burkina Faso si non présent
-        const internationalNumber = cleanedNumber.startsWith("226") ? cleanedNumber : `226${cleanedNumber}`;
-        return `https://wa.me/${internationalNumber}`;
-    }
+    return Array.from(conversationsMap.values());
+  }
+
+  /**
+   * Génère un lien WhatsApp pour le Burkina Faso (+226 par défaut).
+   */
+  getWhatsAppLink(phoneNumber: string): string {
+    const cleaned = phoneNumber.replace(/\D/g, "");
+    const international = cleaned.startsWith("226") ? cleaned : `226${cleaned}`;
+    return `https://wa.me/${international}`;
+  }
 }
 
 export const communicationService = new CommunicationService();
