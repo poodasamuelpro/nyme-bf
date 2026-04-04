@@ -1,4 +1,4 @@
-// src/app/client/dashboard/page.tsx 
+// src/app/client/dashboard/page.tsx
 // Vérification rôle côté page — pas dans le middleware
 'use client'
 import { useState, useEffect, useCallback } from 'react'
@@ -16,13 +16,13 @@ import {
 type Tab = 'accueil' | 'livraisons' | 'wallet' | 'notifications'
 
 const STATUT: Record<string, { label: string; emoji: string; bg: string; text: string }> = {
-  en_attente:       { label: 'En attente',    emoji: '🕐', bg: 'bg-amber-50',  text: 'text-amber-700' },
-  acceptee:         { label: 'Acceptée',      emoji: '✅', bg: 'bg-blue-50',   text: 'text-blue-700' },
-  en_route_depart:  { label: 'En route ↑',    emoji: '🛵', bg: 'bg-purple-50', text: 'text-purple-700' },
-  colis_recupere:   { label: 'Colis récupéré',emoji: '📦', bg: 'bg-indigo-50', text: 'text-indigo-700' },
-  en_route_arrivee: { label: 'En livraison',  emoji: '🚀', bg: 'bg-orange-50', text: 'text-orange-700' },
-  livree:           { label: 'Livrée',        emoji: '🎉', bg: 'bg-green-50',  text: 'text-green-700' },
-  annulee:          { label: 'Annulée',       emoji: '❌', bg: 'bg-red-50',    text: 'text-red-700' },
+  en_attente:       { label: 'En attente',     emoji: '🕐', bg: 'bg-amber-50',  text: 'text-amber-700' },
+  acceptee:         { label: 'Acceptée',       emoji: '✅', bg: 'bg-blue-50',   text: 'text-blue-700' },
+  en_rout_depart:   { label: 'En route ↑',     emoji: '🛵', bg: 'bg-purple-50', text: 'text-purple-700' },
+  colis_recupere:   { label: 'Colis récupéré', emoji: '📦', bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  en_route_arrivee: { label: 'En livraison',   emoji: '🚀', bg: 'bg-orange-50', text: 'text-orange-700' },
+  livree:           { label: 'Livrée',         emoji: '🎉', bg: 'bg-green-50',  text: 'text-green-700' },
+  annulee:          { label: 'Annulée',        emoji: '❌', bg: 'bg-red-50',    text: 'text-red-700' },
 }
 
 const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' XOF'
@@ -40,8 +40,6 @@ export default function ClientDashboard() {
   const [search,        setSearch]        = useState('')
   const [filterStatut,  setFilterStatut]  = useState('tous')
 
-  // ── Loaders ──────────────────────────────────────────────────────
-
   const loadLivraisons = useCallback(async (uid: string) => {
     const { data } = await supabase.from('livraisons')
       .select('*, coursier:coursier_id(id, nom, telephone, avatar_url, note_moyenne)')
@@ -52,16 +50,18 @@ export default function ClientDashboard() {
   const loadWallet = useCallback(async (uid: string) => {
     const { data: w } = await supabase.from('wallets').select('*').eq('user_id', uid).single()
     if (w) setWallet(w as Wallet)
-    const { data: txs } = await supabase.from('transactions_wallet').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(30)
+    // transactions_wallet — colonnes : user_id, type, montant, solde_avant, solde_apres, status, note...
+    const { data: txs } = await supabase
+      .from('transactions_wallet').select('*')
+      .eq('user_id', uid).order('created_at', { ascending: false }).limit(30)
     setTransactions((txs || []) as TransactionWallet[])
   }, [])
 
   const loadNotifications = useCallback(async (uid: string) => {
-    const { data } = await supabase.from('notifications').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)
+    const { data } = await supabase.from('notifications').select('*')
+      .eq('user_id', uid).order('created_at', { ascending: false }).limit(50)
     setNotifications((data || []) as Notification[])
   }, [])
-
-  // ── Init ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     const init = async () => {
@@ -70,10 +70,10 @@ export default function ClientDashboard() {
 
       const { data: u } = await supabase.from('utilisateurs').select('*').eq('id', session.user.id).single()
       if (!u) { router.replace('/login'); return }
-      // Vérification rôle — redirection si mauvais rôle
-      if (u.role === 'coursier')    { router.replace('/coursier/dashboard-new');  return }
-      if (u.role === 'admin')       { router.replace('/admin-x9k2m/dashboard');   return }
-      if (u.role === 'partenaire')  { router.replace('/partenaires/dashboard');   return }
+
+      if (u.role === 'coursier')   { router.replace('/coursier/dashboard-new');  return }
+      if (u.role === 'admin')      { router.replace('/admin-x9k2m/dashboard');   return }
+      if (u.role === 'partenaire') { router.replace('/partenaires/dashboard');   return }
 
       setUser(u as Utilisateur)
       await Promise.all([loadLivraisons(session.user.id), loadWallet(session.user.id), loadNotifications(session.user.id)])
@@ -91,7 +91,7 @@ export default function ClientDashboard() {
       return () => { supabase.removeChannel(channel) }
     }
     init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const markAllRead = async () => {
@@ -121,7 +121,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -162,13 +162,12 @@ export default function ClientDashboard() {
         {/* ── ACCUEIL ── */}
         {tab === 'accueil' && (
           <div className="space-y-5">
-            {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { icon: Package,    label: 'Total',    val: livraisons.length,                                    color: 'bg-nyme-primary' },
-                { icon: ArrowUpRight, label: 'En cours',  val: activeDeliveries.length,                          color: 'bg-purple-500' },
-                { icon: CheckCircle, label: 'Livrées',   val: livraisons.filter(l => l.statut === 'livree').length, color: 'bg-green-500' },
-                { icon: WalletIcon, label: 'Solde',    val: fPrice(wallet?.solde || 0),                          color: 'bg-nyme-orange' },
+                { icon: Package,     label: 'Total',    val: livraisons.length,                                       color: 'bg-nyme-primary' },
+                { icon: ArrowUpRight, label: 'En cours', val: activeDeliveries.length,                                color: 'bg-purple-500' },
+                { icon: CheckCircle, label: 'Livrées',   val: livraisons.filter(l => l.statut === 'livree').length,   color: 'bg-green-500' },
+                { icon: WalletIcon,  label: 'Solde',    val: fPrice(wallet?.solde || 0),                              color: 'bg-nyme-orange' },
               ].map(s => (
                 <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-3">
                   <div className={`w-9 h-9 ${s.color} rounded-xl flex items-center justify-center shrink-0`}><s.icon size={16} className="text-white" /></div>
@@ -177,7 +176,6 @@ export default function ClientDashboard() {
               ))}
             </div>
 
-            {/* Livraisons programmées */}
             {programmees.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -193,7 +191,6 @@ export default function ClientDashboard() {
               </div>
             )}
 
-            {/* Livraisons actives */}
             {activeDeliveries.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -219,13 +216,12 @@ export default function ClientDashboard() {
               </div>
             )}
 
-            {/* Actions rapides */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { icon: '📦', label: 'Nouvelle\nlivraison',  href: '/client/nouvelle-livraison', color: 'bg-nyme-primary' },
-                { icon: '💰', label: 'Wallet',              href: '/client/wallet',            color: 'bg-green-500' },
-                { icon: '💬', label: 'Messages',            href: '/client/messages',          color: 'bg-purple-500' },
-                { icon: '👥', label: 'Contacts\nfavoris',   href: '/client/contacts-favoris',  color: 'bg-nyme-orange' },
+                { icon: '📦', label: 'Nouvelle\nlivraison', href: '/client/nouvelle-livraison', color: 'bg-nyme-primary' },
+                { icon: '💰', label: 'Wallet',              href: '/client/wallet',             color: 'bg-green-500' },
+                { icon: '💬', label: 'Messages',            href: '/client/messages',           color: 'bg-purple-500' },
+                { icon: '👥', label: 'Contacts\nfavoris',  href: '/client/contacts-favoris',   color: 'bg-nyme-orange' },
               ].map(a => (
                 <Link key={a.label} href={a.href}
                   className={`${a.color} text-white rounded-2xl p-4 flex flex-col items-center gap-2 hover:opacity-90 transition-opacity shadow-sm active:scale-95`}>
@@ -235,7 +231,6 @@ export default function ClientDashboard() {
               ))}
             </div>
 
-            {/* Historique récent */}
             {livraisons.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -262,14 +257,14 @@ export default function ClientDashboard() {
               </div>
             )}
 
-            {/* Menu */}
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               {[
-                { href: '/client/profil',          icon: Settings,       label: 'Mon profil' },
-                { href: '/client/favoris',          icon: MapPin,         label: 'Adresses favorites' },
-                { href: '/client/contacts-favoris', icon: Users,          label: 'Contacts favoris' },
+                { href: '/client/profil',          icon: Settings, label: 'Mon profil' },
+                { href: '/client/favoris',          icon: MapPin,   label: 'Adresses favorites' },
+                { href: '/client/contacts-favoris', icon: Users,    label: 'Contacts favoris' },
               ].map(item => (
-                <Link key={item.href} href={item.href} className="flex items-center gap-3 p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-3 p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                   <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center"><item.icon size={16} className="text-gray-600" /></div>
                   <span className="flex-1 font-semibold text-gray-900 text-sm">{item.label}</span>
                   <ChevronRight size={16} className="text-gray-300" />
@@ -310,12 +305,13 @@ export default function ClientDashboard() {
                 <div className="p-12 text-center">
                   <Package size={36} className="text-gray-200 mx-auto mb-3" />
                   <p className="text-gray-500 text-sm">Aucune livraison</p>
-                  <Link href="/client/nouvelle-livraison" className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-nyme-primary text-white rounded-xl text-sm font-bold hover:bg-nyme-primary-dark"><Plus size={14} />Créer une livraison</Link>
+                  <Link href="/client/nouvelle-livraison" className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-nyme-primary text-white rounded-xl text-sm font-bold hover:bg-nyme-primary-dark">
+                    <Plus size={14} />Créer une livraison
+                  </Link>
                 </div>
               ) : (
                 filteredLivraisons.map(l => {
                   const cfg = STATUT[l.statut] || STATUT.en_attente
-                  const hasPropositions = l.statut === 'en_attente'
                   return (
                     <div key={l.id} className="p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                       <div className="flex items-start gap-3">
@@ -331,9 +327,15 @@ export default function ClientDashboard() {
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                             <span className="text-gray-400">{fDate(l.created_at)}</span>
                             <span className="text-gray-700 font-bold">{fPrice(l.prix_final || l.prix_calcule)}</span>
-                            {hasPropositions && <Link href={`/client/propositions/${l.id}`} className="text-orange-600 font-semibold hover:underline ml-auto">Voir propositions →</Link>}
-                            {!['livree', 'annulee', 'en_attente'].includes(l.statut) && <Link href={`/client/suivi/${l.id}`} className="text-nyme-primary font-semibold hover:underline ml-auto">Suivre →</Link>}
-                            {l.statut === 'livree' && <Link href={`/client/evaluation/${l.id}`} className="text-orange-600 font-semibold hover:underline ml-auto">Évaluer ⭐</Link>}
+                            {l.statut === 'en_attente' && (
+                              <Link href={`/client/propositions/${l.id}`} className="text-orange-600 font-semibold hover:underline ml-auto">Voir propositions →</Link>
+                            )}
+                            {!['livree', 'annulee', 'en_attente'].includes(l.statut) && (
+                              <Link href={`/client/suivi/${l.id}`} className="text-nyme-primary font-semibold hover:underline ml-auto">Suivre →</Link>
+                            )}
+                            {l.statut === 'livree' && (
+                              <Link href={`/client/evaluation/${l.id}`} className="text-orange-600 font-semibold hover:underline ml-auto">Évaluer ⭐</Link>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -359,15 +361,33 @@ export default function ClientDashboard() {
                   <span className="text-5xl font-black">{(wallet?.solde || 0).toLocaleString()}</span>
                   <span className="text-xl font-semibold">XOF</span>
                 </div>
+                {wallet && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-white/10 rounded-xl p-3">
+                      <p className="text-white/60 text-xs">Total gains</p>
+                      <p className="font-bold">{fPrice(wallet.total_gains || 0)}</p>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-3">
+                      <p className="text-white/60 text-xs">Total retraits</p>
+                      <p className="font-bold">{fPrice(wallet.total_retraits || 0)}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Link>
+            {/* transactions_wallet — type = 'gain'|'retrait'|'commission'|'bonus'|'remboursement'|'recharge'|'paiement_course' */}
             {transactions.slice(0, 8).map(tx => (
               <div key={tx.id} className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-3">
                 <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-base shrink-0">
-                  {['gain', 'gain_course', 'bonus'].includes(tx.type) ? '💰' : '📦'}
+                  {['gain', 'bonus', 'remboursement', 'recharge'].includes(tx.type) ? '💰' : '📦'}
                 </div>
-                <div className="flex-1 min-w-0"><p className="text-gray-900 text-sm font-semibold truncate">{tx.note || tx.type}</p><p className="text-gray-400 text-xs">{fDate(tx.created_at)}</p></div>
-                <p className={`font-black text-sm flex-shrink-0 ${tx.montant > 0 ? 'text-green-600' : 'text-red-500'}`}>{tx.montant > 0 ? '+' : ''}{tx.montant.toLocaleString()} XOF</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-900 text-sm font-semibold truncate">{tx.note || tx.type}</p>
+                  <p className="text-gray-400 text-xs">{fDate(tx.created_at)}</p>
+                </div>
+                <p className={`font-black text-sm flex-shrink-0 ${tx.montant > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {tx.montant > 0 ? '+' : ''}{tx.montant.toLocaleString()} XOF
+                </p>
               </div>
             ))}
           </div>
