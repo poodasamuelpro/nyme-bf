@@ -1,11 +1,12 @@
-// src/app/login/page.tsx — Login/Register CLIENT
-// Vérification rôle dans la page uniquement (pas de middleware)
+// src/app/login/page.tsx — Login/Register CLIENT NYME
+// ✅ Vérification rôle STRICTE : seuls les clients peuvent se connecter ici
+// ✅ Responsive : mobile-first, pas de header/footer sur mobile
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, CheckCircle2, Zap, Package } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Package, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Mode = 'login' | 'register'
@@ -13,31 +14,40 @@ type Mode = 'login' | 'register'
 function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [mode,          setMode]          = useState<Mode>('login')
-  const [loading,       setLoading]       = useState(false)
-  const [showPw,        setShowPw]        = useState(false)
-  const [showPw2,       setShowPw2]       = useState(false)
+  const [mode, setMode] = useState<Mode>('login')
+  const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [showPw, setShowPw] = useState(false)
+  const [showPw2, setShowPw2] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [form, setForm] = useState({ nom: '', email: '', telephone: '', password: '', confirmPassword: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (searchParams.get('mode') === 'register') setMode('register')
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) redirectAfterLogin(session.user.id)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        await redirectAfterLogin(session.user.id)
+      }
+      setCheckingSession(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── REDIRECTION STRICTE PAR RÔLE ────────────────────────────────────
   const redirectAfterLogin = async (userId: string) => {
-    const { data } = await supabase.from('utilisateurs').select('role').eq('id', userId).single()
-    const role = data?.role
-    const redirect = searchParams.get('redirect')
-    if (redirect) { router.replace(redirect); return }
-    if (role === 'coursier')   { router.replace('/coursier/dashboard-new'); return }
-    if (role === 'admin')      { router.replace('/admin-x9k2m/dashboard'); return }
-    if (role === 'partenaire') { router.replace('/partenaires/dashboard'); return }
-    router.replace('/client/dashboard')
+    const { data: u } = await supabase.from('utilisateurs').select('role, est_actif').eq('id', userId).single()
+    if (!u) { await supabase.auth.signOut(); return }
+    // Un client qui se reconnecte ici → ok
+    if (u.role === 'client') { router.replace('/client/dashboard'); return }
+    // Tous les autres rôles → déconnexion + message d'erreur
+    await supabase.auth.signOut()
+    const msgs: Record<string, string> = {
+      coursier:   'Ce compte coursier doit se connecter via l\'espace coursier 🛵',
+      admin:      'Espace administrateur uniquement.',
+      partenaire: 'Ce compte partenaire doit se connecter via l\'espace partenaire 🏢',
+    }
+    toast.error(msgs[u.role] || 'Accès non autorisé sur cet espace.')
   }
 
   const validate = () => {
@@ -53,6 +63,7 @@ function LoginPageContent() {
     return Object.keys(e).length === 0
   }
 
+  // ── CONNEXION — vérification rôle client OBLIGATOIRE ────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
@@ -62,22 +73,32 @@ function LoginPageContent() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       })
-      if (error) {
-        throw new Error(
-          error.message.includes('Invalid login credentials')
-            ? 'Email ou mot de passe incorrect'
-            : error.message
-        )
+      if (error) throw new Error(error.message.includes('Invalid login credentials') ? 'Email ou mot de passe incorrect' : error.message)
+      if (!data.user) throw new Error('Connexion échouée')
+
+      // Vérification rôle STRICTE dans la DB (pas dans les metadata)
+      const { data: u } = await supabase.from('utilisateurs').select('role, est_actif').eq('id', data.user.id).single()
+      
+      if (!u) {
+        await supabase.auth.signOut()
+        throw new Error('Compte introuvable. Contactez le support.')
       }
-      if (data.user) {
-        const { data: u } = await supabase.from('utilisateurs').select('role').eq('id', data.user.id).single()
-        if (u?.role === 'coursier') {
-          await supabase.auth.signOut()
-          throw new Error('Ce compte coursier doit se connecter via l\'espace coursier')
+      if (!u.est_actif) {
+        await supabase.auth.signOut()
+        throw new Error('Votre compte est désactivé. Contactez le support NYME.')
+      }
+      if (u.role !== 'client') {
+        await supabase.auth.signOut()
+        const msgs: Record<string, string> = {
+          coursier:   'Ce compte est un compte coursier → connectez-vous sur l\'espace coursier 🛵',
+          admin:      'Espace administrateur uniquement.',
+          partenaire: 'Ce compte partenaire → connectez-vous sur l\'espace partenaire 🏢',
         }
-        toast.success('Connexion réussie !')
-        await redirectAfterLogin(data.user.id)
+        throw new Error(msgs[u.role] || 'Ce compte n\'est pas un compte client.')
       }
+
+      toast.success('Connexion réussie ! Bon retour 👋')
+      router.replace('/client/dashboard')
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erreur de connexion')
     } finally {
@@ -85,6 +106,7 @@ function LoginPageContent() {
     }
   }
 
+  // ── INSCRIPTION — rôle client FORCÉ ─────────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
@@ -94,45 +116,35 @@ function LoginPageContent() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
         options: {
-          data: {
-            nom: form.nom.trim(),
-            telephone: form.telephone.trim(),
-            role: 'client',
-          },
+          data: { nom: form.nom.trim(), telephone: form.telephone.trim(), role: 'client' },
         },
       })
-      if (error) {
-        throw new Error(
-          error.message.includes('already registered')
-            ? 'Cet email est déjà utilisé'
-            : error.message
-        )
-      }
-      if (data.user) {
-        // Upsert manuel sécurisé
-        await supabase.from('utilisateurs').upsert({
-          id: data.user.id,
-          nom: form.nom.trim(),
-          telephone: form.telephone.trim(),
-          email: form.email.trim().toLowerCase(),
-          role: 'client',
-          est_verifie: false,
-          est_actif: true,
-        }, { onConflict: 'id' })
+      if (error) throw new Error(error.message.includes('already registered') ? 'Cet email est déjà utilisé' : error.message)
+      if (!data.user) throw new Error('Erreur lors de la création du compte')
 
-        // Créer wallet
-        await supabase.from('wallets').upsert(
-          { user_id: data.user.id, solde: 0, total_gains: 0, total_retraits: 0 },
-          { onConflict: 'user_id' }
-        )
+      // Upsert DB avec rôle client GARANTI
+      await supabase.from('utilisateurs').upsert({
+        id: data.user.id,
+        nom: form.nom.trim(),
+        telephone: form.telephone.trim(),
+        email: form.email.trim().toLowerCase(),
+        role: 'client', // FORCÉ — ne jamais laisser la DB metadata décider
+        est_verifie: false,
+        est_actif: true,
+        note_moyenne: 5,
+      }, { onConflict: 'id' })
 
-        if (data.session) {
-          toast.success('Compte créé avec succès !')
-          router.replace('/client/dashboard')
-        } else {
-          toast('Vérifiez votre email pour confirmer votre compte', { icon: '📧' })
-          setMode('login')
-        }
+      await supabase.from('wallets').upsert(
+        { user_id: data.user.id, solde: 0, total_gains: 0, total_retraits: 0 },
+        { onConflict: 'user_id' }
+      )
+
+      if (data.session) {
+        toast.success('Compte créé ! Bienvenue sur NYME 🎉')
+        router.replace('/client/dashboard')
+      } else {
+        toast('Vérifiez votre email pour confirmer votre compte', { icon: '📧', duration: 5000 })
+        setMode('login')
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'inscription')
@@ -141,6 +153,7 @@ function LoginPageContent() {
     }
   }
 
+  // ── GOOGLE OAuth — rôle vérifié côté callback ─────────────────────
   const handleGoogle = async () => {
     setGoogleLoading(true)
     try {
@@ -166,70 +179,90 @@ function LoginPageContent() {
     },
   })
 
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f172a' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+            <Zap size={26} className="text-white" />
+          </div>
+          <div className="w-7 h-7 border-2 border-white/20 border-t-orange-400 rounded-full animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0f172a' }}>
-      {/* Arrière-plan */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-80 h-80 rounded-full opacity-10 blur-3xl" style={{ background: '#f97316' }} />
-        <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full opacity-15 blur-3xl" style={{ background: '#1a56db', animationDelay: '1.5s' }} />
+      {/* Décors background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none select-none">
+        <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full opacity-[0.07] blur-3xl" style={{ background: '#f97316' }} />
+        <div className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full opacity-[0.08] blur-3xl" style={{ background: '#1a56db' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.03] blur-3xl" style={{ background: '#f97316' }} />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 px-6 pt-8 pb-4 flex items-center justify-between max-w-md mx-auto w-full">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
-            <Zap size={20} className="text-white" strokeWidth={2.5} />
+      {/* Header minimal — masqué sur mobile (app-like) */}
+      <header className="hidden sm:flex relative z-10 px-6 pt-7 pb-2 items-center justify-between max-w-md mx-auto w-full">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+            <Zap size={18} className="text-white" strokeWidth={2.5} />
           </div>
-          <span className="font-black text-white text-xl tracking-wider">NYME</span>
+          <span className="font-black text-white text-lg tracking-widest">NYME</span>
         </Link>
-        <Link href="/coursier/login"
-          className="text-white/50 text-xs hover:text-white/80 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-white/10">
-          Espace coursier <ArrowRight size={12} />
+        <Link href="/coursier/login" className="text-white/40 text-xs hover:text-white/70 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-white/8">
+          Espace coursier <ArrowRight size={11} />
         </Link>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-6 relative z-10">
+      <main className="flex-1 flex items-center justify-center px-4 py-6 relative z-10 min-h-screen sm:min-h-0">
         <div className="w-full max-w-md">
-          {/* Titre */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
-              style={{ background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)' }}>
-              <Package size={14} className="text-orange-400" />
-              <span className="text-orange-400 text-xs font-bold uppercase tracking-wide">Espace Client</span>
+
+          {/* Logo mobile uniquement */}
+          <div className="sm:hidden flex justify-center mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+                <Zap size={20} className="text-white" strokeWidth={2.5} />
+              </div>
+              <span className="font-black text-white text-xl tracking-widest">NYME</span>
             </div>
-            <h1 className="text-3xl font-black text-white mb-2">
+          </div>
+
+          {/* Titre */}
+          <div className="text-center mb-7">
+            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-4"
+              style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)' }}>
+              <Package size={13} className="text-orange-400" />
+              <span className="text-orange-400 text-[11px] font-bold uppercase tracking-widest">Espace Client</span>
+            </div>
+            <h1 className="text-3xl font-black text-white mb-2 leading-tight">
               {mode === 'login' ? 'Bon retour 👋' : 'Rejoindre NYME'}
             </h1>
-            <p className="text-white/50 text-sm">
-              {mode === 'login'
-                ? 'Connectez-vous pour commander vos livraisons'
-                : 'Créez votre compte pour des livraisons express'}
+            <p className="text-white/40 text-sm">
+              {mode === 'login' ? 'Commandez vos livraisons en quelques secondes' : 'Livraison express · Suivi GPS · Paiement sécurisé'}
             </p>
           </div>
 
           {/* Carte formulaire */}
-          <div className="rounded-3xl p-6" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)' }}>
-            {/* Tabs */}
-            <div className="flex rounded-2xl p-1 mb-6" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div className="rounded-3xl p-6" style={{ background: 'rgba(255,255,255,0.055)', border: '1px solid rgba(255,255,255,0.09)', backdropFilter: 'blur(24px)' }}>
+
+            {/* Tabs Mode */}
+            <div className="flex rounded-2xl p-1 mb-5" style={{ background: 'rgba(255,255,255,0.04)' }}>
               {(['login', 'register'] as Mode[]).map(m => (
                 <button key={m} onClick={() => { setMode(m); setErrors({}) }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                    mode === m
-                      ? 'text-white shadow-lg'
-                      : 'text-white/40 hover:text-white/70'
-                  }`}
-                  style={mode === m ? { background: '#f97316' } : {}}>
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                  style={mode === m ? { background: '#f97316', color: '#fff', boxShadow: '0 4px 12px rgba(249,115,22,0.35)' } : { color: 'rgba(255,255,255,0.35)' }}>
                   {m === 'login' ? 'Se connecter' : 'Créer un compte'}
                 </button>
               ))}
             </div>
 
-            {/* Google */}
+            {/* Google OAuth */}
             <button onClick={handleGoogle} disabled={googleLoading}
-              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-white hover:bg-gray-50 text-gray-800 font-bold text-sm transition-all active:scale-98 disabled:opacity-60 shadow-xl mb-4">
+              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-white hover:bg-gray-50 text-gray-800 font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-60 mb-4"
+              style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
               {googleLoading
-                ? <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                : <svg width="18" height="18" viewBox="0 0 18 18">
+                ? <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                : <svg width="17" height="17" viewBox="0 0 18 18">
                     <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
                     <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
                     <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18z"/>
@@ -240,159 +273,117 @@ function LoginPageContent() {
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
-              <span className="text-white/30 text-xs">ou</span>
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <span className="text-white/25 text-xs">ou</span>
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             </div>
 
             <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-3">
               {mode === 'register' && (
                 <>
-                  {/* Nom */}
-                  <div>
-                    <label className="block text-white/70 text-xs font-semibold mb-1.5 ml-1">Nom complet *</label>
-                    <div className="relative">
-                      <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
-                      <input
-                        type="text"
-                        placeholder="Votre nom complet"
-                        autoComplete="name"
-                        {...field('nom')}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-white placeholder-white/30 text-sm outline-none transition-all"
-                        style={{
-                          background: errors.nom ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                          border: `1px solid ${errors.nom ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                        }}
-                      />
-                    </div>
-                    {errors.nom && <p className="text-red-400 text-xs mt-1 ml-1">{errors.nom}</p>}
-                  </div>
-
-                  {/* Téléphone */}
-                  <div>
-                    <label className="block text-white/70 text-xs font-semibold mb-1.5 ml-1">Téléphone *</label>
-                    <div className="relative">
-                      <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
-                      <input
-                        type="tel"
-                        placeholder="+226 70 00 00 00"
-                        autoComplete="tel"
-                        {...field('telephone')}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-white placeholder-white/30 text-sm outline-none transition-all"
-                        style={{
-                          background: errors.telephone ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                          border: `1px solid ${errors.telephone ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                        }}
-                      />
-                    </div>
-                    {errors.telephone && <p className="text-red-400 text-xs mt-1 ml-1">{errors.telephone}</p>}
-                  </div>
+                  <InputField icon={<User size={14} className="text-white/35" />} type="text" placeholder="Nom complet" autoComplete="name" label="Nom complet *" error={errors.nom} {...field('nom')} />
+                  <InputField icon={<Phone size={14} className="text-white/35" />} type="tel" placeholder="+226 70 00 00 00" autoComplete="tel" label="Téléphone *" error={errors.telephone} {...field('telephone')} />
                 </>
               )}
 
-              {/* Email */}
-              <div>
-                <label className="block text-white/70 text-xs font-semibold mb-1.5 ml-1">Adresse email *</label>
-                <div className="relative">
-                  <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input
-                    type="email"
-                    placeholder="votre@email.com"
-                    autoComplete="email"
-                    {...field('email')}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-white placeholder-white/30 text-sm outline-none transition-all"
-                    style={{
-                      background: errors.email ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                      border: `1px solid ${errors.email ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                    }}
-                  />
-                </div>
-                {errors.email && <p className="text-red-400 text-xs mt-1 ml-1">{errors.email}</p>}
-              </div>
+              <InputField icon={<Mail size={14} className="text-white/35" />} type="email" placeholder="votre@email.com" autoComplete="email" label="Adresse email *" error={errors.email} {...field('email')} />
 
-              {/* Mot de passe */}
               <div>
-                <label className="block text-white/70 text-xs font-semibold mb-1.5 ml-1">Mot de passe *</label>
+                <label className="block text-white/60 text-xs font-semibold mb-1.5 ml-1">Mot de passe *</label>
                 <div className="relative">
-                  <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2"><Lock size={14} className="text-white/35" /></span>
                   <input
                     type={showPw ? 'text' : 'password'}
                     placeholder="Minimum 6 caractères"
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     {...field('password')}
-                    className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-white placeholder-white/30 text-sm outline-none transition-all"
-                    style={{
-                      background: errors.password ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                      border: `1px solid ${errors.password ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                    }}
+                    className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-white placeholder-white/25 text-sm outline-none transition-all"
+                    style={{ background: errors.password ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.07)', border: `1px solid ${errors.password ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}` }}
                   />
                   <button type="button" onClick={() => setShowPw(!showPw)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
-                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
                 {errors.password && <p className="text-red-400 text-xs mt-1 ml-1">{errors.password}</p>}
               </div>
 
-              {/* Confirmer MDP */}
               {mode === 'register' && (
                 <div>
-                  <label className="block text-white/70 text-xs font-semibold mb-1.5 ml-1">Confirmer le mot de passe *</label>
+                  <label className="block text-white/60 text-xs font-semibold mb-1.5 ml-1">Confirmer le mot de passe *</label>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2"><Lock size={14} className="text-white/35" /></span>
                     <input
                       type={showPw2 ? 'text' : 'password'}
                       placeholder="Répétez votre mot de passe"
                       autoComplete="new-password"
                       {...field('confirmPassword')}
-                      className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-white placeholder-white/30 text-sm outline-none transition-all"
-                      style={{
-                        background: errors.confirmPassword ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                        border: `1px solid ${errors.confirmPassword ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                      }}
+                      className="w-full pl-11 pr-12 py-3.5 rounded-2xl text-white placeholder-white/25 text-sm outline-none transition-all"
+                      style={{ background: errors.confirmPassword ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.07)', border: `1px solid ${errors.confirmPassword ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}` }}
                     />
                     <button type="button" onClick={() => setShowPw2(!showPw2)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
-                      {showPw2 ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPw2 ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                   {errors.confirmPassword && <p className="text-red-400 text-xs mt-1 ml-1">{errors.confirmPassword}</p>}
                 </div>
               )}
 
-              {/* Submit */}
               <button type="submit" disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm text-white transition-all active:scale-98 disabled:opacity-60 mt-1"
-                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm text-white transition-all active:scale-[0.98] disabled:opacity-60 mt-2"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', boxShadow: loading ? 'none' : '0 6px 20px rgba(249,115,22,0.4)' }}>
                 {loading
-                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Chargement...</>
+                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Connexion...</>
                   : <>{mode === 'login' ? '🔑 Se connecter' : '🚀 Créer mon compte'}<ArrowRight size={14} /></>
                 }
               </button>
             </form>
 
             {mode === 'register' && (
-              <div className="flex items-start gap-2.5 p-3 rounded-2xl mt-3"
-                style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                <CheckCircle2 size={14} className="text-orange-400 mt-0.5 shrink-0" />
-                <p className="text-white/50 text-xs leading-relaxed">
-                  Compte créé avec le rôle <span className="text-orange-400 font-bold">Client</span>. Pour livrer avec NYME,{' '}
-                  <Link href="/coursier/login" className="underline hover:text-orange-400 transition-colors">inscrivez-vous comme coursier</Link>.
+              <div className="mt-4 rounded-2xl p-3.5 flex items-start gap-2.5"
+                style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)' }}>
+                <span className="text-orange-400 text-sm mt-0.5">ℹ️</span>
+                <p className="text-white/40 text-xs leading-relaxed">
+                  Compte créé avec le rôle <span className="text-orange-400 font-bold">Client</span>. Pour devenir coursier NYME,{' '}
+                  <Link href="/coursier/login" className="underline hover:text-orange-400 transition-colors">inscrivez-vous ici</Link>.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Liens */}
-          <div className="mt-6 text-center space-y-3">
-            <div className="flex justify-center gap-6 text-xs text-white/30">
-              <Link href="/partenaires/login" className="hover:text-white/60 transition-colors">🏢 Partenaire</Link>
-              <Link href="/coursier/login" className="hover:text-white/60 transition-colors">🛵 Coursier</Link>
+          {/* Liens bas de page */}
+          <div className="mt-5 text-center space-y-3">
+            <div className="flex justify-center gap-6 text-xs text-white/25">
+              <Link href="/partenaires/login" className="hover:text-white/50 transition-colors">🏢 Partenaire</Link>
+              <Link href="/coursier/login" className="hover:text-white/50 transition-colors">🛵 Coursier</Link>
             </div>
-            <p className="text-white/15 text-xs">© 2025 NYME · Ouagadougou, Burkina Faso</p>
+            <p className="text-white/10 text-[11px]">© 2025 NYME · Ouagadougou, Burkina Faso</p>
           </div>
         </div>
       </main>
+    </div>
+  )
+}
+
+// Composant champ réutilisable
+function InputField({ icon, label, error, ...props }: {
+  icon: React.ReactNode; label: string; error?: string;
+  type: string; placeholder: string; autoComplete: string;
+  value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-white/60 text-xs font-semibold mb-1.5 ml-1">{label}</label>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2">{icon}</span>
+        <input
+          {...props}
+          className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-white placeholder-white/25 text-sm outline-none transition-all"
+          style={{ background: error ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.07)', border: `1px solid ${error ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}` }}
+        />
+      </div>
+      {error && <p className="text-red-400 text-xs mt-1 ml-1">{error}</p>}
     </div>
   )
 }
@@ -401,7 +392,7 @@ export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f172a' }}>
-        <div className="w-10 h-10 border-3 border-white/20 border-t-orange-400 rounded-full animate-spin" style={{ borderWidth: 3 }} />
+        <div className="w-8 h-8 border-2 border-white/20 border-t-orange-400 rounded-full animate-spin" />
       </div>
     }>
       <LoginPageContent />
