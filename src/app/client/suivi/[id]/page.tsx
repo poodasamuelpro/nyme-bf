@@ -14,28 +14,29 @@ import toast from 'react-hot-toast'
 
 const MapAdvanced = dynamic(() => import('@/components/MapAdvanced'), { ssr: false })
 
+// Livraison avec jointure coursier depuis utilisateurs
 interface LivraisonWithDetails extends Livraison {
-  coursier?: Utilisateur
+  coursier?: Pick<Utilisateur, 'id' | 'nom' | 'avatar_url' | 'note_moyenne' | 'telephone' | 'whatsapp'>
 }
 
 const STATUT_COLORS: Record<string, string> = {
-  en_attente: 'bg-yellow-100 text-yellow-700',
-  acceptee: 'bg-blue-100 text-blue-700',
-  en_route_depart: 'bg-purple-100 text-purple-700',
-  colis_recupere: 'bg-indigo-100 text-indigo-700',
+  en_attente:       'bg-yellow-100 text-yellow-700',
+  acceptee:         'bg-blue-100 text-blue-700',
+  en_rout_depart:   'bg-purple-100 text-purple-700',
+  colis_recupere:   'bg-indigo-100 text-indigo-700',
   en_route_arrivee: 'bg-orange-100 text-orange-700',
-  livree: 'bg-green-100 text-green-700',
-  annulee: 'bg-red-100 text-red-700',
+  livree:           'bg-green-100 text-green-700',
+  annulee:          'bg-red-100 text-red-700',
 }
 
 const STATUT_LABELS: Record<string, string> = {
-  en_attente: '⏳ En attente d\'un coursier',
-  acceptee: '✅ Course acceptée',
-  en_route_depart: '🛵 Coursier en route',
-  colis_recupere: '📦 Colis récupéré',
+  en_attente:       "⏳ En attente d'un coursier",
+  acceptee:         '✅ Course acceptée',
+  en_rout_depart:   '🛵 Coursier en route',
+  colis_recupere:   '📦 Colis récupéré',
   en_route_arrivee: '🚀 En cours de livraison',
-  livree: '🎉 Livraison effectuée',
-  annulee: '❌ Annulée',
+  livree:           '🎉 Livraison effectuée',
+  annulee:          '❌ Annulée',
 }
 
 export default function SuiviPage() {
@@ -56,23 +57,35 @@ export default function SuiviPage() {
     if (!session) { router.push('/login'); return }
     setCurrentUserId(session.user.id)
 
+    // Jointure : coursier_id → utilisateurs (id, nom, avatar_url, note_moyenne, telephone, whatsapp)
     const { data } = await supabase
       .from('livraisons')
-      .select('*, coursier:coursier_id(id, nom, avatar_url, note_moyenne, telephone)')
-      .eq('id', livraisonId).single()
+      .select('*, coursier:coursier_id(id, nom, avatar_url, note_moyenne, telephone, whatsapp)')
+      .eq('id', livraisonId)
+      .single()
 
-    if (!data || data.client_id !== session.user.id) { router.push('/client/dashboard'); return }
+    if (!data || data.client_id !== session.user.id) {
+      router.push('/client/dashboard')
+      return
+    }
     setLivraison(data as LivraisonWithDetails)
 
+    // Calcul itinéraire avec les bons noms de colonnes
     if (data.depart_lat && data.arrivee_lat) {
       try {
-        const r = await mapService.getRoute(data.depart_lat, data.depart_lng, data.arrivee_lat, data.arrivee_lng)
+        const r = await mapService.getRoute(
+          data.depart_lat, data.depart_lng,
+          data.arrivee_lat, data.arrivee_lng
+        )
         setRoute(r)
       } catch { /* ignore */ }
     }
 
+    // Messages si coursier assigné
     if (data.coursier_id) {
-      const msgs = await communicationService.getConversation(session.user.id, data.coursier_id, livraisonId)
+      const msgs = await communicationService.getConversation(
+        session.user.id, data.coursier_id, livraisonId
+      )
       setMessages(msgs)
     }
 
@@ -82,7 +95,10 @@ export default function SuiviPage() {
   useEffect(() => {
     loadData()
     const channel = supabase.channel(`suivi-${livraisonId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'livraisons', filter: `id=eq.${livraisonId}` }, () => loadData())
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'livraisons',
+        filter: `id=eq.${livraisonId}`,
+      }, () => loadData())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [livraisonId, loadData])
@@ -90,7 +106,9 @@ export default function SuiviPage() {
   const handleSendMessage = async () => {
     if (!livraison?.coursier_id || !newMessage.trim() || !currentUserId) return
     try {
-      await communicationService.sendMessage(currentUserId, livraison.coursier_id, newMessage.trim(), livraisonId)
+      await communicationService.sendMessage(
+        currentUserId, livraison.coursier_id, newMessage.trim(), livraisonId
+      )
       setNewMessage('')
       await loadData()
     } catch { toast.error("Erreur lors de l'envoi") }
@@ -139,8 +157,14 @@ export default function SuiviPage() {
         {/* Route */}
         {route && (
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-xs text-gray-500 mb-1">Distance</p><p className="text-2xl font-black text-primary-600">{route.distance.toFixed(1)} km</p></div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-xs text-gray-500 mb-1">Durée estimée</p><p className="text-2xl font-black text-primary-600">{Math.round(route.duration / 60)} min</p></div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">Distance</p>
+              <p className="text-2xl font-black text-primary-600">{route.distance.toFixed(1)} km</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <p className="text-xs text-gray-500 mb-1">Durée estimée</p>
+              <p className="text-2xl font-black text-primary-600">{Math.round(route.duration / 60)} min</p>
+            </div>
           </div>
         )}
 
@@ -150,15 +174,21 @@ export default function SuiviPage() {
             <h3 className="font-bold text-gray-900 mb-3">Votre coursier</h3>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-bold text-lg">{livraison.coursier.nom?.charAt(0) || '?'}</div>
+                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-bold text-lg">
+                  {livraison.coursier.nom?.charAt(0) || '?'}
+                </div>
                 <div>
                   <p className="font-bold text-gray-900">{livraison.coursier.nom}</p>
                   <p className="text-xs text-gray-500">⭐ {livraison.coursier.note_moyenne || 'Nouveau'}/5</p>
                 </div>
               </div>
               <div className="flex gap-2">
-                {livraison.coursier.telephone && <a href={`tel:${livraison.coursier.telephone}`} className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-lg hover:bg-green-200">📞</a>}
-                <button onClick={() => setShowChat(!showChat)} className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-lg hover:bg-blue-200">💬</button>
+                {livraison.coursier.telephone && (
+                  <a href={`tel:${livraison.coursier.telephone}`}
+                    className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-lg hover:bg-green-200">📞</a>
+                )}
+                <button onClick={() => setShowChat(!showChat)}
+                  className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-lg hover:bg-blue-200">💬</button>
               </div>
             </div>
           </div>
@@ -172,10 +202,12 @@ export default function SuiviPage() {
               {messages.length === 0
                 ? <p className="text-sm text-gray-400 text-center py-8">Aucun message</p>
                 : messages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.expediteur_id === livraison.client_id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${msg.expediteur_id === livraison.client_id ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-900'}`}>{msg.contenu}</div>
-                  </div>
-                ))
+                    <div key={msg.id} className={`flex ${msg.expediteur_id === livraison.client_id ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs px-3 py-2 rounded-xl text-sm ${msg.expediteur_id === livraison.client_id ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-900'}`}>
+                        {msg.contenu}
+                      </div>
+                    </div>
+                  ))
               }
             </div>
             <div className="flex gap-2">
@@ -183,25 +215,43 @@ export default function SuiviPage() {
                 onChange={e => setNewMessage(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() } }}
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary-400" />
-              <button onClick={handleSendMessage} className="px-4 py-2 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600">→</button>
+              <button onClick={handleSendMessage}
+                className="px-4 py-2 rounded-xl bg-primary-500 text-white font-semibold hover:bg-primary-600">→</button>
             </div>
           </div>
         )}
 
         {/* Détails */}
         <div className="space-y-3">
-          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-xs text-gray-500 mb-1">Départ</p><p className="font-semibold text-gray-900">{livraison.depart_adresse}</p></div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-xs text-gray-500 mb-1">Destination</p><p className="font-semibold text-gray-900">{livraison.arrivee_adresse}</p></div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-xs text-gray-500 mb-1">Montant</p><p className="text-2xl font-black text-primary-600">{(livraison.prix_final || livraison.prix_calcule).toLocaleString()} XOF</p></div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="text-xs text-gray-500 mb-1">Départ</p>
+            <p className="font-semibold text-gray-900">{livraison.depart_adresse}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="text-xs text-gray-500 mb-1">Destination</p>
+            <p className="font-semibold text-gray-900">{livraison.arrivee_adresse}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <p className="text-xs text-gray-500 mb-1">Montant</p>
+            <p className="text-2xl font-black text-primary-600">
+              {(livraison.prix_final || livraison.prix_calcule).toLocaleString()} XOF
+            </p>
+          </div>
         </div>
 
         {/* Actions fin */}
         {isCompleted && (
           <div className="space-y-3">
             {livraison.statut === 'livree' && (
-              <Link href={`/client/evaluation/${livraisonId}`} className="block w-full py-3 rounded-xl bg-primary-500 text-white font-bold text-center hover:bg-primary-600">⭐ Évaluer cette livraison</Link>
+              <Link href={`/client/evaluation/${livraisonId}`}
+                className="block w-full py-3 rounded-xl bg-primary-500 text-white font-bold text-center hover:bg-primary-600">
+                ⭐ Évaluer cette livraison
+              </Link>
             )}
-            <Link href="/client/dashboard" className="block w-full py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-bold text-center hover:bg-gray-50">← Retour au dashboard</Link>
+            <Link href="/client/dashboard"
+              className="block w-full py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-bold text-center hover:bg-gray-50">
+              ← Retour au dashboard
+            </Link>
           </div>
         )}
       </main>
