@@ -63,7 +63,7 @@ export default function CoursierWalletPage() {
     } finally { setSubmittingRetrait(false) }
   }
 
-  const gains = transactions.filter(t => t.type === 'gain' || t.type === 'gain_course')
+  const gains = transactions.filter(t => t.type === 'paiement_course' || t.type === 'commission' || t.type === 'bonus')
   const gainsDuJour = gains.filter(t => new Date(t.created_at).toDateString() === new Date().toDateString()).reduce((s, t) => s + t.montant, 0)
   const gainsDuMois = gains.filter(t => new Date(t.created_at).getMonth() === new Date().getMonth()).reduce((s, t) => s + t.montant, 0)
 
