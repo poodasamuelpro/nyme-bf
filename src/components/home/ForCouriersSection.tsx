@@ -115,7 +115,7 @@ export default function ForCouriersSection() {
             </div>
 
             <a
-              href="#telecharger"
+              href="/coursier/login"
               className="inline-flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-4 rounded-2xl bg-gradient-to-r from-nyme-primary to-nyme-blue-light text-white font-bold text-sm sm:text-base hover:shadow-xl hover:shadow-nyme-blue-light/35 transition-all duration-300 hover:-translate-y-1 font-body"
             >
               📥 S'inscrire comme coursier
@@ -162,7 +162,9 @@ export default function ForCouriersSection() {
 
               <div className="mt-4 p-3 rounded-xl bg-nyme-primary/22 border border-nyme-blue-light/22 text-center">
                 <p className="text-white/55 text-xs font-body">🚧 Application en cours de développement</p>
-                <p className="text-nyme-blue-light text-xs mt-1 font-body font-semibold">Inscrivez-vous pour être notifié au lancement</p>
+                <a href="/coursier/login" className="block text-nyme-blue-light text-xs mt-1 font-body font-semibold hover:underline">
+                  Inscrivez-vous pour être notifié au lancement
+                </a>
               </div>
             </div>
           </div>
