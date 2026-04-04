@@ -36,7 +36,6 @@ export default function MissionPage() {
     if (!session) { router.push('/login'); return }
     setCurrentUserId(session.user.id)
 
-    // Modification pour pointer sur 'utilisateurs' via client_id
     const { data: missionData, error: missionError } = await supabase
       .from('livraisons')
       .select('*, client:client_id(*)') 
@@ -51,7 +50,6 @@ export default function MissionPage() {
 
     setMission(missionData as MissionWithDetails)
 
-    // Utilisation des noms corrigés : depart_lat / arrivee_lat
     if (missionData.depart_lat && missionData.arrivee_lat) {
       try {
         const r = await mapService.getRoute(
@@ -85,7 +83,6 @@ export default function MissionPage() {
     try {
       await communicationService.sendMessage(currentUserId, mission.client_id, newMessage.trim(), missionId)
       setNewMessage('')
-      // On recharge juste les messages pour éviter un flash de chargement complet
       const convMessages = await communicationService.getConversation(currentUserId, mission.client_id, missionId)
       setMessages(convMessages)
     } catch { toast.error("Erreur lors de l'envoi") }
@@ -130,7 +127,6 @@ export default function MissionPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-24 space-y-4">
-        {/* Carte */}
         {mission.depart_lat && (
           <div className="h-72 rounded-2xl overflow-hidden border border-gray-200">
             <MapAdvanced
@@ -142,7 +138,6 @@ export default function MissionPage() {
           </div>
         )}
 
-        {/* Route infos */}
         {route && (
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -156,7 +151,6 @@ export default function MissionPage() {
           </div>
         )}
 
-        {/* Client */}
         {mission.client && (
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-3">Client</h3>
@@ -178,7 +172,6 @@ export default function MissionPage() {
           </div>
         )}
 
-        {/* Détails livraison */}
         <div className="space-y-3">
           {[
             { label: 'Départ', value: mission.depart_adresse },
@@ -202,7 +195,6 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* Chat */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <h3 className="font-bold text-gray-900 mb-3">Chat avec le client</h3>
           <div className="h-40 overflow-y-auto bg-gray-50 rounded-xl p-3 mb-3 space-y-2">
@@ -226,14 +218,14 @@ export default function MissionPage() {
           </div>
         </div>
 
-        {/* Actions statut */}
+        {/* --- ACTIONS STATUT CORRIGÉES (en_rout_depart pour matcher le SQL) --- */}
         {mission.statut === 'acceptee' && (
-          <button onClick={() => handleUpdateStatut('en_route_depart')} disabled={actionInProgress}
+          <button onClick={() => handleUpdateStatut('en_rout_depart')} disabled={actionInProgress}
             className="w-full py-4 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 disabled:opacity-50">
             {actionInProgress ? '...' : '🛵 En route vers le colis'}
           </button>
         )}
-        {mission.statut === 'en_route_depart' && (
+        {(mission.statut as string) === 'en_rout_depart' && (
           <button onClick={() => handleUpdateStatut('colis_recupere')} disabled={actionInProgress}
             className="w-full py-4 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600 disabled:opacity-50">
             {actionInProgress ? '...' : '📦 Colis récupéré'}
