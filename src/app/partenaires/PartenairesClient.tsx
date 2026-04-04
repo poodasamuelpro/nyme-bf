@@ -7,14 +7,14 @@ const WHATSAPP_NUMBER = '22600000000'
 
 const plans = [
   {
-    name: 'Starter', price: '25 000', period: 'FCFA / mois',
+    name: 'Starter', price: '45 000', period: 'FCFA / mois',
     desc: 'Pour les particuliers actifs et petites boutiques',
     color: 'border-nyme-primary', badge: '', badgeColor: '',
-    features: ["Jusqu'à 30 livraisons / mois", 'Livreur dédié assigné', 'Livraison sous 45 min', 'Suivi GPS en temps réel', 'Tableau de bord simple', 'Support par email'],
+    features: ["Jusqu'à 40 livraisons / mois", 'Livreur dédié assigné', 'Livraison sous 45 min', 'Suivi GPS en temps réel', 'Tableau de bord simple', 'Support par email'],
     cta: 'Choisir Starter', ctaStyle: 'btn-secondary',
   },
   {
-    name: 'Business', price: '65 000', period: 'FCFA / mois',
+    name: 'Business', price: '90 000', period: 'FCFA / mois',
     desc: 'Pour les boutiques et PME à Ouagadougou',
     color: 'border-nyme-orange', badge: '⭐ Populaire', badgeColor: 'bg-nyme-orange text-white',
     highlight: true,
@@ -97,15 +97,15 @@ export default function PartenairesClient() {
         </div>
       </section>
 
-      {/* ── AVANTAGES ── */}
-      <section className="py-16 sm:py-20 bg-white">
+      {/* ── AVANTAGES — fond sombre comme le reste du site ── */}
+      <section className="py-16 sm:py-20 bg-nyme-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-14">
             <div className="badge mb-4">✦ Pourquoi choisir NYME Partenaires ?</div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-black text-nyme-text mb-3">
+            <h2 className="font-heading text-3xl sm:text-4xl font-black text-white mb-3">
               Tout ce qu'il vous faut pour livrer sans effort
             </h2>
-            <p className="text-nyme-text-muted text-base sm:text-lg max-w-xl mx-auto font-body">
+            <p className="text-white/60 text-base sm:text-lg max-w-xl mx-auto font-body">
               Une logistique clé en main, pensée pour les professionnels de Ouagadougou.
             </p>
           </div>
@@ -113,12 +113,12 @@ export default function PartenairesClient() {
             {avantages.map((a) => {
               const Icon = a.icon
               return (
-                <div key={a.title} className="card p-5 sm:p-6">
+                <div key={a.title} className="bg-white/[0.06] border border-white/10 rounded-2xl p-5 sm:p-6 hover:bg-white/[0.09] transition-colors">
                   <div className={`w-11 h-11 rounded-xl ${a.bg} flex items-center justify-center mb-4`}>
                     <Icon size={20} className={a.color} />
                   </div>
-                  <h3 className="font-heading text-base font-bold text-nyme-text mb-2">{a.title}</h3>
-                  <p className="text-nyme-text-muted text-sm leading-relaxed font-body">{a.desc}</p>
+                  <h3 className="font-heading text-base font-bold text-white mb-2">{a.title}</h3>
+                  <p className="text-white/55 text-sm leading-relaxed font-body">{a.desc}</p>
                 </div>
               )
             })}
@@ -126,7 +126,7 @@ export default function PartenairesClient() {
         </div>
       </section>
 
-      {/* ── ABONNEMENTS ── */}
+      {/* ── ABONNEMENTS — fond légèrement plus clair ── */}
       <section id="abonnements" className="py-16 sm:py-20 section-light">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-14">
@@ -178,13 +178,13 @@ export default function PartenairesClient() {
         </div>
       </section>
 
-      {/* ── Comment ça marche ── */}
-      <section id="livreur-dedié" className="py-16 sm:py-20 bg-white">
+      {/* ── Comment ça marche — fond sombre ── */}
+      <section id="livreur-dedié" className="py-16 sm:py-20 bg-nyme-bg">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-12">
             <div className="badge mb-4">✦ Processus</div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-black text-nyme-text mb-3">Comment ça fonctionne ?</h2>
-            <p className="text-nyme-text-muted text-base sm:text-lg max-w-xl mx-auto font-body">
+            <h2 className="font-heading text-3xl sm:text-4xl font-black text-white mb-3">Comment ça fonctionne ?</h2>
+            <p className="text-white/60 text-base sm:text-lg max-w-xl mx-auto font-body">
               En 4 étapes simples, votre logistique devient automatique.
             </p>
           </div>
@@ -195,24 +195,24 @@ export default function PartenairesClient() {
               { emoji:'📦', title:'Commandez à tout moment',    desc:"Via l'app, WhatsApp ou votre dashboard privé. Le livreur arrive en express." },
               { emoji:'📊', title:'Suivez tout en temps réel',  desc:'Photos, suivi GPS, historique complet et rapports mensuels téléchargeables.' },
             ].map((s, i) => (
-              <div key={s.emoji} className="card p-4 sm:p-5 text-center">
+              <div key={s.emoji} className="bg-white/[0.06] border border-white/10 rounded-2xl p-4 sm:p-5 text-center hover:bg-white/[0.09] transition-colors">
                 <div className="relative inline-flex mb-3">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-nyme-bg-input flex items-center justify-center text-xl sm:text-2xl">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white/10 flex items-center justify-center text-xl sm:text-2xl">
                     {s.emoji}
                   </div>
-                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-nyme-primary text-white text-[10px] font-bold flex items-center justify-center font-body">
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-nyme-orange text-white text-[10px] font-bold flex items-center justify-center font-body">
                     {i + 1}
                   </div>
                 </div>
-                <h3 className="font-heading text-sm font-bold text-nyme-text mb-1.5">{s.title}</h3>
-                <p className="text-nyme-text-muted text-xs leading-relaxed font-body">{s.desc}</p>
+                <h3 className="font-heading text-sm font-bold text-white mb-1.5">{s.title}</h3>
+                <p className="text-white/55 text-xs leading-relaxed font-body">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── FORMULAIRE ── */}
+      {/* ── FORMULAIRE — fond section-light ── */}
       <section id="contact" className="py-16 sm:py-20 section-light">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -291,8 +291,8 @@ export default function PartenairesClient() {
                       <label className="block text-nyme-text-muted text-xs uppercase tracking-wider font-semibold mb-1.5 font-body">Plan souhaité</label>
                       <select value={form.plan} onChange={e => setForm({...form, plan: e.target.value})} className="input-nyme">
                         <option value="">Choisir un plan</option>
-                        <option value="Starter">Starter — 25 000 FCFA/mois</option>
-                        <option value="Business">Business — 65 000 FCFA/mois</option>
+                        <option value="Starter">Starter — 45 000 FCFA/mois</option>
+                        <option value="Business">Business — 90 000 FCFA/mois</option>
                         <option value="Enterprise">Enterprise — Sur devis</option>
                         <option value="À discuter">Je veux en savoir plus</option>
                       </select>
