@@ -1,10 +1,10 @@
 // src/app/client/dashboard/page.tsx
-// ✅ Carte Google Maps (satellite toggle)
-// ✅ Photo profil en header
-// ✅ Paramètres complets (modifier profil, photo, adresses, sécurité)
-// ✅ Types de course : Standard / Urgente / Planifiée (immédiate supprimée)
-// ✅ Vérification rôle stricte
-// ✅ Responsive : mobile = app pure (pas de header/footer site)
+// ✅ Carte : Google Maps (si clé dispo) → fallback Leaflet automatique
+// ✅ Zéro dépendance @types/google.maps — types gérés en interne (any ciblé)
+// ✅ Photo profil header + Paramètres complets
+// ✅ Types de course : Standard / Urgente / Planifiée
+// ✅ Vérification rôle stricte (client uniquement)
+// ✅ Responsive mobile-first / app pure sans header/footer site
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,86 +13,84 @@ import { supabase } from '@/lib/supabase'
 import type { Utilisateur, Livraison, Wallet, Notification, TransactionWallet } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import {
-  Bell, Plus, Package, Star, Settings, ChevronRight, MapPin,
-  ArrowUpRight, CheckCircle, Zap, ArrowDown, ArrowUp,
-  TrendingUp, Home, List, Wallet as WalletIcon, Camera,
-  Edit3, Shield, Phone, Mail, LogOut, X, Save, Eye, EyeOff,
-  Navigation, RefreshCw, Clock,
+  Bell, Plus, Package, Settings, ChevronRight, MapPin,
+  ArrowUpRight, CheckCircle, Zap, ArrowDown,
+  TrendingUp, Wallet as WalletIcon, Camera,
+  Shield, X, Save, Eye, EyeOff,
+  RefreshCw,
 } from 'lucide-react'
 
-type Tab = 'accueil' | 'livraisons' | 'wallet' | 'parametres'
+type Tab = 'accueil' | 'livraisons' | 'wallet'
 
 const STATUT: Record<string, { label: string; emoji: string; bg: string; text: string; color: string }> = {
-  en_attente:       { label: 'En attente',     emoji: '🕐', bg: '#fffbeb', text: '#92400e',  color: '#f59e0b' },
-  acceptee:         { label: 'Acceptée',       emoji: '✅', bg: '#eff6ff', text: '#1e40af',  color: '#3b82f6' },
-  en_rout_depart:   { label: 'En route ↑',     emoji: '🛵', bg: '#f5f3ff', text: '#5b21b6',  color: '#8b5cf6' },
-  colis_recupere:   { label: 'Colis récupéré', emoji: '📦', bg: '#eef2ff', text: '#3730a3',  color: '#6366f1' },
-  en_route_arrivee: { label: 'En livraison',   emoji: '🚀', bg: '#fff7ed', text: '#9a3412',  color: '#f97316' },
-  livree:           { label: 'Livrée',         emoji: '🎉', bg: '#f0fdf4', text: '#166534',  color: '#22c55e' },
-  annulee:          { label: 'Annulée',        emoji: '❌', bg: '#fef2f2', text: '#991b1b',  color: '#ef4444' },
+  en_attente:       { label: 'En attente',     emoji: '🕐', bg: '#fffbeb', text: '#92400e', color: '#f59e0b' },
+  acceptee:         { label: 'Acceptée',       emoji: '✅', bg: '#eff6ff', text: '#1e40af', color: '#3b82f6' },
+  en_rout_depart:   { label: 'En route ↑',     emoji: '🛵', bg: '#f5f3ff', text: '#5b21b6', color: '#8b5cf6' },
+  colis_recupere:   { label: 'Colis récupéré', emoji: '📦', bg: '#eef2ff', text: '#3730a3', color: '#6366f1' },
+  en_route_arrivee: { label: 'En livraison',   emoji: '🚀', bg: '#fff7ed', text: '#9a3412', color: '#f97316' },
+  livree:           { label: 'Livrée',         emoji: '🎉', bg: '#f0fdf4', text: '#166534', color: '#22c55e' },
+  annulee:          { label: 'Annulée',        emoji: '❌', bg: '#fef2f2', text: '#991b1b', color: '#ef4444' },
 }
 
 const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FCFA'
 const fDate  = (d: string) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d))
 
-// ── GOOGLE MAPS COMPONENT ────────────────────────────────────────────────
-declare global {
-  interface Window {
-    google: any;  // Ça marche immédiatement
-    initGoogleMap?: () => void;
-  }
-}
-
-function GoogleMapView({
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPOSANT CARTE — Google Maps si clé dispo, sinon Leaflet automatiquement
+// Types Google gérés avec `any` ciblé → aucun @types/google.maps requis
+// ─────────────────────────────────────────────────────────────────────────────
+function MapView({
   userLat, userLng, livraisons, satellite = false
 }: {
   userLat: number | null; userLng: number | null;
   livraisons: Livraison[]; satellite?: boolean
 }) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstance = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<google.maps.Marker[]>([])
+  const mapRef       = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapInstance  = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const markersRef   = useRef<any[]>([])
+  const [engine, setEngine]     = useState<'google' | 'leaflet' | 'error' | null>(null)
   const [mapReady, setMapReady] = useState(false)
-  const [mapError, setMapError] = useState(false)
 
   const lat = userLat ?? 12.3714
   const lng = userLng ?? -1.5197
 
-  const initMap = useCallback(() => {
-    if (!mapRef.current || !window.google) return
+  // ── Helpers marqueur SVG (inline base64 — pas besoin de @types/google.maps) ─
+  const svgBase64 = (svg: string) =>
+    typeof window !== 'undefined' ? 'data:image/svg+xml;base64,' + window.btoa(svg) : ''
+
+  // ── INIT GOOGLE MAPS ──────────────────────────────────────────────────────
+  const initGoogle = useCallback(() => {
+    if (!mapRef.current) return
     try {
-      const map = new window.google.maps.Map(mapRef.current, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const G = (window as any).google.maps
+
+      const map = new G.Map(mapRef.current, {
         center: { lat, lng },
         zoom: 14,
         mapTypeId: satellite ? 'hybrid' : 'roadmap',
-        disableDefaultUI: false,
+        disableDefaultUI: true,
         zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
+        gestureHandling: 'greedy',
         styles: satellite ? [] : [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
           { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
         ],
       })
       mapInstance.current = map
 
-      // Marker utilisateur (pulsant)
+      // Marker position utilisateur
       if (userLat && userLng) {
-        new window.google.maps.Marker({
+        new G.Marker({
           position: { lat: userLat, lng: userLng },
           map,
           icon: {
-            url: 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="14" fill="#1a56db" opacity="0.2"/>
-                <circle cx="16" cy="16" r="8" fill="#1a56db" stroke="white" stroke-width="2.5"/>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(32, 32),
-            anchor: new window.google.maps.Point(16, 16),
+            url: svgBase64(`<svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><circle cx="15" cy="15" r="13" fill="#1a56db" opacity="0.2"/><circle cx="15" cy="15" r="8" fill="#1a56db" stroke="white" stroke-width="2.5"/></svg>`),
+            scaledSize: new G.Size(30, 30),
+            anchor: new G.Point(15, 15),
           },
-          title: 'Votre position',
         })
       }
 
@@ -100,68 +98,152 @@ function GoogleMapView({
       livraisons.filter(l => !['livree', 'annulee'].includes(l.statut)).forEach(l => {
         if (!l.arrivee_lat || !l.arrivee_lng) return
         const cfg = STATUT[l.statut]
-        const marker = new window.google.maps.Marker({
+        const m = new G.Marker({
           position: { lat: l.arrivee_lat, lng: l.arrivee_lng },
           map,
           icon: {
-            url: 'data:image/svg+xml;base64,' + btoa(`
-              <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="10" cy="10" r="9" fill="${cfg?.color || '#f97316'}" stroke="white" stroke-width="2"/>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(20, 20),
-            anchor: new window.google.maps.Point(10, 10),
+            url: svgBase64(`<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" fill="${cfg?.color || '#f97316'}" stroke="white" stroke-width="2"/></svg>`),
+            scaledSize: new G.Size(18, 18),
+            anchor: new G.Point(9, 9),
           },
         })
-        const info = new window.google.maps.InfoWindow({
-          content: `<div style="font-family:sans-serif;font-size:12px;font-weight:600;padding:4px 6px">${cfg?.emoji} ${l.arrivee_adresse}</div>`,
-        })
-        marker.addListener('click', () => info.open(map, marker))
-        markersRef.current.push(marker)
+        const info = new G.InfoWindow({ content: `<div style="font-size:12px;font-weight:600;padding:4px">${cfg?.emoji} ${l.arrivee_adresse}</div>` })
+        m.addListener('click', () => info.open(map, m))
+        markersRef.current.push(m)
       })
 
+      setEngine('google')
       setMapReady(true)
     } catch {
-      setMapError(true)
+      initLeaflet()
     }
-  }, [lat, lng, satellite, userLat, userLng, livraisons])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng, satellite, userLat, userLng])
+
+  // ── INIT LEAFLET (fallback) ───────────────────────────────────────────────
+  const initLeaflet = useCallback(() => {
+    if (!mapRef.current || typeof window === 'undefined') return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((mapRef.current as any)._leaflet_id) return
+
+    import('leaflet').then(L => {
+      if (!mapRef.current) return
+      const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false }).setView([lat, lng], 14)
+      mapInstance.current = map
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
+
+      if (userLat && userLng) {
+        const icon = L.divIcon({
+          html: `<div style="background:#1a56db;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(26,86,219,0.4)"></div>`,
+          iconSize: [16, 16], className: '',
+        })
+        L.marker([userLat, userLng], { icon }).addTo(map).bindPopup('📍 Vous êtes ici')
+      }
+
+      livraisons.filter(l => !['livree', 'annulee'].includes(l.statut)).forEach(l => {
+        if (!l.arrivee_lat || !l.arrivee_lng) return
+        const cfg = STATUT[l.statut]
+        const icon = L.divIcon({
+          html: `<div style="background:${cfg?.color || '#f97316'};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+          iconSize: [12, 12], className: '',
+        })
+        L.marker([l.arrivee_lat, l.arrivee_lng], { icon }).addTo(map).bindPopup(`${cfg?.emoji} ${l.arrivee_adresse}`)
+      })
+
+      setEngine('leaflet')
+      setMapReady(true)
+    }).catch(() => setEngine('error'))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng, userLat, userLng])
+
+  // ── CHARGEMENT INITIAL ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Nettoyage si re-montage
+    return () => {
+      markersRef.current.forEach(m => { try { m.setMap?.(null) } catch {} })
+      markersRef.current = []
+      if (mapInstance.current) {
+        try { mapInstance.current.remove?.() } catch {}
+        mapInstance.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    if (window.google?.maps) { initMap(); return }
-    const script = document.createElement('script')
-    // Utilise la clé Google Maps du projet (à configurer dans .env)
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=fr`
-    script.async = true
-    script.defer = true
-    script.onload = initMap
-    script.onerror = () => setMapError(true)
-    document.head.appendChild(script)
-    return () => { markersRef.current.forEach(m => m.setMap(null)); markersRef.current = [] }
-  }, [initMap])
+    if (typeof window === 'undefined' || !mapRef.current) return
 
-  useEffect(() => {
-    if (mapInstance.current && window.google) {
-      mapInstance.current.setMapTypeId(satellite ? 'hybrid' : 'roadmap')
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (apiKey && (window as any).google?.maps) {
+      initGoogle()
+      return
     }
-  }, [satellite])
 
-  if (mapError) {
+    if (apiKey) {
+      // Charger le script Google Maps dynamiquement
+      const existing = document.getElementById('gmaps-script')
+      if (existing) { initGoogle(); return }
+
+      const script = document.createElement('script')
+      script.id  = 'gmaps-script'
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&language=fr&region=BF`
+      script.async = true
+      script.defer = true
+      script.onload  = initGoogle
+      script.onerror = initLeaflet  // Si Google échoue → Leaflet
+      document.head.appendChild(script)
+    } else {
+      // Pas de clé Google → Leaflet directement
+      initLeaflet()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Toggle satellite (Google uniquement)
+  useEffect(() => {
+    if (engine !== 'google' || !mapInstance.current) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mapInstance.current.setMapTypeId(satellite ? 'hybrid' : 'roadmap')
+  }, [satellite, engine])
+
+  if (engine === 'error') {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50">
         <MapPin size={28} className="text-blue-300 mb-2" />
         <p className="text-sm font-semibold text-gray-500">Carte indisponible</p>
-        <p className="text-xs text-gray-400 mt-0.5">Configurez NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
+        <p className="text-xs text-gray-400 mt-0.5">Activez la géolocalisation</p>
       </div>
     )
   }
 
   return (
-    <div ref={mapRef} className="w-full h-full" style={{ opacity: mapReady ? 1 : 0.5, transition: 'opacity 0.3s' }} />
+    <>
+      {engine === 'leaflet' && (
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      )}
+      <div
+        ref={mapRef}
+        className="w-full h-full"
+        style={{ opacity: mapReady ? 1 : 0.6, transition: 'opacity 0.3s' }}
+      />
+      {/* Badge moteur visible uniquement en dev */}
+      {process.env.NODE_ENV === 'development' && engine && (
+        <div className="absolute bottom-14 left-3 z-20 text-[10px] px-2 py-0.5 rounded-full font-bold"
+          style={{ background: engine === 'google' ? '#1a56db' : '#64748b', color: 'white' }}>
+          {engine === 'google' ? '🗺️ Google Maps' : '🗺️ OpenStreetMap'}
+        </div>
+      )}
+    </>
   )
 }
 
-// ── MODAL PARAMÈTRES ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL PARAMÈTRES
+// ─────────────────────────────────────────────────────────────────────────────
 function ParametresPanel({
   user, wallet, onClose, onUpdate
 }: {
@@ -169,7 +251,7 @@ function ParametresPanel({
   onClose: () => void; onUpdate: (u: Utilisateur) => void
 }) {
   const [section, setSection] = useState<'profil' | 'securite' | 'adresses' | 'notifs'>('profil')
-  const [form, setForm] = useState({ nom: user.nom, telephone: user.telephone || '', email: user.email || '' })
+  const [form, setForm] = useState({ nom: user.nom, telephone: user.telephone || '' })
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -193,8 +275,8 @@ function ParametresPanel({
 
   const handleChangePassword = async () => {
     if (!pwForm.current) { toast.error('Mot de passe actuel requis'); return }
-    if (pwForm.next.length < 6) { toast.error('Nouveau mot de passe trop court'); return }
-    if (pwForm.next !== pwForm.confirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+    if (pwForm.next.length < 6) { toast.error('Minimum 6 caractères'); return }
+    if (pwForm.next !== pwForm.confirm) { toast.error('Mots de passe différents'); return }
     setSaving(true)
     try {
       const { error: loginErr } = await supabase.auth.signInWithPassword({ email: user.email!, password: pwForm.current })
@@ -210,10 +292,10 @@ function ParametresPanel({
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { toast.error('Fichier trop lourd (max 5 Mo)'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Max 5 Mo'); return }
     setUploadingPhoto(true)
     try {
-      const ext = file.name.split('.').pop()
+      const ext  = file.name.split('.').pop()
       const path = `avatars/${user.id}/avatar.${ext}`
       const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
       if (upErr) throw upErr
@@ -226,20 +308,22 @@ function ParametresPanel({
   }
 
   const menus = [
-    { id: 'profil' as const, icon: '👤', label: 'Mon profil' },
-    { id: 'securite' as const, icon: '🔒', label: 'Sécurité' },
-    { id: 'adresses' as const, icon: '📍', label: 'Adresses' },
-    { id: 'notifs' as const, icon: '🔔', label: 'Notifications' },
+    { id: 'profil'   as const, emoji: '👤', label: 'Profil' },
+    { id: 'securite' as const, emoji: '🔒', label: 'Sécurité' },
+    { id: 'adresses' as const, emoji: '📍', label: 'Adresses' },
+    { id: 'notifs'   as const, emoji: '🔔', label: 'Notifs' },
   ]
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden flex flex-col" style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.15)' }}>
-        {/* Header */}
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.15)' }}>
+
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
           <h2 className="font-black text-gray-900 text-lg">Paramètres</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
-            <X size={15} className="text-gray-600" />
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+            <X size={14} className="text-gray-600" />
           </button>
         </div>
 
@@ -253,9 +337,9 @@ function ParametresPanel({
                 </div>
             }
             <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto}
-              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg transition-all active:scale-95"
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg"
               style={{ background: '#1a56db' }}>
-              {uploadingPhoto ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Camera size={14} />}
+              {uploadingPhoto ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Camera size={13} />}
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           </div>
@@ -263,71 +347,67 @@ function ParametresPanel({
           <p className="text-gray-400 text-xs">{user.email}</p>
         </div>
 
-        {/* Tabs navigation */}
+        {/* Tabs */}
         <div className="flex px-4 py-2 gap-1 border-b border-gray-100 overflow-x-auto">
           {menus.map(m => (
             <button key={m.id} onClick={() => setSection(m.id)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all"
               style={section === m.id ? { background: '#1a56db', color: 'white' } : { color: '#6b7280' }}>
-              <span>{m.icon}</span>{m.label}
+              <span>{m.emoji}</span>{m.label}
             </button>
           ))}
         </div>
 
-        {/* Contenu */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-
           {section === 'profil' && (
             <>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">Nom complet</label>
-                <input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
-                  placeholder="Votre nom complet" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5">Téléphone</label>
-                <input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
-                  placeholder="+226 70 00 00 00" type="tel" />
-              </div>
+              {[
+                { key: 'nom' as const,       label: 'Nom complet',  type: 'text', placeholder: 'Votre nom' },
+                { key: 'telephone' as const, label: 'Téléphone',    type: 'tel',  placeholder: '+226 70 00 00 00' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5">{f.label}</label>
+                  <input type={f.type} value={form[f.key]} placeholder={f.placeholder}
+                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors" />
+                </div>
+              ))}
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5">Email</label>
-                <input value={form.email} disabled
+                <input value={user.email || ''} disabled
                   className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 text-gray-400 text-sm outline-none cursor-not-allowed" />
                 <p className="text-xs text-gray-400 mt-1 ml-1">L'email ne peut pas être modifié ici</p>
               </div>
               <button onClick={handleSaveProfile} disabled={saving}
-                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:scale-[0.98] transition-all"
                 style={{ background: '#1a56db' }}>
-                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={15} />}
-                {saving ? 'Sauvegarde...' : 'Enregistrer les modifications'}
+                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={14} />}
+                {saving ? 'Sauvegarde...' : 'Enregistrer'}
               </button>
             </>
           )}
 
           {section === 'securite' && (
             <>
-              <div className="bg-blue-50 rounded-2xl p-4 mb-2">
-                <p className="text-blue-800 text-xs font-semibold flex items-center gap-2">
-                  <Shield size={14} />Changement de mot de passe
-                </p>
+              <div className="bg-blue-50 rounded-2xl p-3.5 mb-1">
+                <p className="text-blue-800 text-xs font-semibold flex items-center gap-2"><Shield size={13} />Modification du mot de passe</p>
               </div>
               {[
-                { key: 'current' as const, label: 'Mot de passe actuel', placeholder: '••••••••' },
-                { key: 'next' as const, label: 'Nouveau mot de passe', placeholder: 'Minimum 6 caractères' },
-                { key: 'confirm' as const, label: 'Confirmer le nouveau', placeholder: 'Répétez le nouveau mot de passe' },
+                { key: 'current' as const, label: 'Mot de passe actuel',   auto: 'current-password' },
+                { key: 'next'    as const, label: 'Nouveau mot de passe',  auto: 'new-password' },
+                { key: 'confirm' as const, label: 'Confirmer le nouveau',   auto: 'new-password' },
               ].map(f => (
                 <div key={f.key}>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5">{f.label}</label>
                   <div className="relative">
                     <input type={showPw ? 'text' : 'password'} value={pwForm[f.key]}
+                      autoComplete={f.auto}
                       onChange={e => setPwForm(p => ({ ...p, [f.key]: e.target.value }))}
                       className="w-full pl-4 pr-11 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
-                      placeholder={f.placeholder} />
+                      placeholder="••••••••" />
                     {f.key === 'current' && (
                       <button type="button" onClick={() => setShowPw(!showPw)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                         {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     )}
@@ -335,9 +415,9 @@ function ParametresPanel({
                 </div>
               ))}
               <button onClick={handleChangePassword} disabled={saving}
-                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
                 style={{ background: '#1a56db' }}>
-                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Shield size={15} />}
+                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Shield size={14} />}
                 Modifier le mot de passe
               </button>
             </>
@@ -345,43 +425,38 @@ function ParametresPanel({
 
           {section === 'adresses' && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500 font-medium">Gérez vos adresses favorites pour commander plus rapidement.</p>
-              <Link href="/client/favoris"
-                className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-colors">
-                <span className="text-2xl">📍</span>
-                <div className="flex-1">
-                  <p className="font-bold text-gray-900 text-sm">Gérer mes adresses</p>
-                  <p className="text-gray-500 text-xs">Maison, Bureau, et autres lieux</p>
-                </div>
-                <ChevronRight size={15} className="text-gray-400" />
-              </Link>
-              <Link href="/client/contacts-favoris"
-                className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 hover:bg-green-100 transition-colors">
-                <span className="text-2xl">👥</span>
-                <div className="flex-1">
-                  <p className="font-bold text-gray-900 text-sm">Contacts favoris</p>
-                  <p className="text-gray-500 text-xs">Destinataires fréquents</p>
-                </div>
-                <ChevronRight size={15} className="text-gray-400" />
-              </Link>
+              <p className="text-sm text-gray-500">Gérez vos adresses pour commander plus rapidement.</p>
+              {[
+                { href: '/client/favoris',          emoji: '📍', title: 'Mes adresses favorites',  sub: 'Maison, Bureau...' },
+                { href: '/client/contacts-favoris', emoji: '👥', title: 'Contacts favoris',         sub: 'Destinataires fréquents' },
+              ].map(item => (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:bg-gray-100 transition-colors">
+                  <span className="text-2xl">{item.emoji}</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900 text-sm">{item.title}</p>
+                    <p className="text-gray-500 text-xs">{item.sub}</p>
+                  </div>
+                  <ChevronRight size={14} className="text-gray-400" />
+                </Link>
+              ))}
             </div>
           )}
 
           {section === 'notifs' && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500 font-medium">Préférences de notifications</p>
               {[
-                { label: 'Livraisons en cours', sub: 'Mises à jour statut en temps réel', on: true },
-                { label: 'Promotions NYME', sub: 'Offres spéciales et nouveautés', on: false },
-                { label: 'Rappels de paiement', sub: 'Alertes solde wallet', on: true },
+                { label: 'Livraisons en cours',  sub: 'Statuts temps réel', on: true },
+                { label: 'Promotions NYME',      sub: 'Offres spéciales',   on: false },
+                { label: 'Alertes wallet',       sub: 'Solde faible',       on: true },
               ].map((n, i) => (
                 <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
                   <div>
                     <p className="font-semibold text-gray-900 text-sm">{n.label}</p>
                     <p className="text-gray-400 text-xs">{n.sub}</p>
                   </div>
-                  <div className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${n.on ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                    <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${n.on ? 'left-5' : 'left-0.5'}`} style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+                  <div className={`w-11 h-6 rounded-full relative transition-colors ${n.on ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${n.on ? 'left-5' : 'left-0.5'}`} />
                   </div>
                 </div>
               ))}
@@ -393,7 +468,9 @@ function ParametresPanel({
   )
 }
 
-// ── DASHBOARD PRINCIPAL ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD PRINCIPAL
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ClientDashboard() {
   const router = useRouter()
   const [user,          setUser]          = useState<Utilisateur | null>(null)
@@ -440,11 +517,11 @@ export default function ClientDashboard() {
       const { data: u } = await supabase.from('utilisateurs').select('*').eq('id', session.user.id).single()
       if (!u) { router.replace('/login'); return }
 
-      // Vérification rôle stricte
+      // ── Vérification rôle stricte ─────────────────────────────────────
       if (u.role !== 'client') {
         const redirects: Record<string, string> = {
-          coursier: '/coursier/dashboard-new',
-          admin: '/admin-x9k2m/dashboard',
+          coursier:   '/coursier/dashboard-new',
+          admin:      '/admin-x9k2m/dashboard',
           partenaire: '/partenaires/dashboard',
         }
         router.replace(redirects[u.role] || '/login')
@@ -452,7 +529,11 @@ export default function ClientDashboard() {
       }
 
       setUser(u as Utilisateur)
-      await Promise.all([loadLivraisons(session.user.id), loadWallet(session.user.id), loadNotifications(session.user.id)])
+      await Promise.all([
+        loadLivraisons(session.user.id),
+        loadWallet(session.user.id),
+        loadNotifications(session.user.id),
+      ])
       setLoading(false)
 
       navigator.geolocation?.getCurrentPosition(
@@ -464,7 +545,7 @@ export default function ClientDashboard() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'livraisons', filter: `client_id=eq.${session.user.id}` },
           () => loadLivraisons(session.user.id))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}` },
-          (p) => {
+          p => {
             setNotifications(prev => [p.new as Notification, ...prev])
             toast((p.new as Notification).titre || '🔔 Notification', { icon: '🔔' })
           })
@@ -483,11 +564,11 @@ export default function ClientDashboard() {
   }
 
   const filteredLivraisons = livraisons.filter(l => {
-    const matchSearch = !search ||
+    const m = !search ||
       l.depart_adresse.toLowerCase().includes(search.toLowerCase()) ||
       l.arrivee_adresse.toLowerCase().includes(search.toLowerCase()) ||
       l.destinataire_nom.toLowerCase().includes(search.toLowerCase())
-    return matchSearch && (filterStatut === 'tous' || l.statut === filterStatut)
+    return m && (filterStatut === 'tous' || l.statut === filterStatut)
   })
 
   const unreadCount      = notifications.filter(n => !n.lu).length
@@ -504,54 +585,36 @@ export default function ClientDashboard() {
     </div>
   )
 
-  const mapHeight = mapExpanded ? 'h-[60vh]' : 'h-52 sm:h-64'
-
   return (
     <>
       {showParams && user && (
         <ParametresPanel
           user={user} wallet={wallet}
           onClose={() => setShowParams(false)}
-          onUpdate={u => { setUser(u); setShowParams(false) }}
+          onUpdate={u => setUser(u)}
         />
       )}
 
       <div className="min-h-screen bg-gray-50 flex flex-col">
 
-        {/* ── HEADER — mobile : app pure (pas de nav site) ── */}
+        {/* ── HEADER ── */}
         <header className="sticky top-0 z-40 bg-white border-b border-gray-100" style={{ boxShadow: '0 1px 10px rgba(0,0,0,0.05)' }}>
           <div className="max-w-2xl mx-auto px-4 flex items-center justify-between h-14">
-
-            {/* Logo + nom */}
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
                 <span className="text-white font-black text-sm">N</span>
               </div>
-              <div className="hidden sm:block">
-                <p className="font-bold text-gray-900 text-sm leading-none">Bonjour {user?.nom?.split(' ')[0]} 👋</p>
-                <p className="text-gray-400 text-[10px]">Espace client</p>
-              </div>
-              <p className="sm:hidden font-bold text-gray-900 text-sm">{user?.nom?.split(' ')[0]} 👋</p>
+              <p className="font-bold text-gray-900 text-sm">{user?.nom?.split(' ')[0]} 👋</p>
             </div>
 
-            {/* Actions droite */}
             <div className="flex items-center gap-1.5">
-              {/* Notifs */}
-              <button onClick={() => setTab('livraisons')}
-                className="relative w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
+              <button onClick={() => setTab('livraisons')} className="relative w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
                 <Bell size={17} className="text-gray-600" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center bg-red-500">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                )}
+                {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center bg-red-500">{unreadCount > 9 ? '9+' : unreadCount}</span>}
               </button>
-
-              {/* Paramètres */}
-              <button onClick={() => setShowParams(true)}
-                className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
+              <button onClick={() => setShowParams(true)} className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
                 <Settings size={16} className="text-gray-600" />
               </button>
-
-              {/* Photo profil */}
               <button onClick={() => setShowParams(true)} className="shrink-0">
                 {user?.avatar_url
                   ? <img src={user.avatar_url} alt={user.nom} className="w-8 h-8 rounded-full object-cover border-2 border-blue-100" />
@@ -560,11 +623,7 @@ export default function ClientDashboard() {
                     </div>
                 }
               </button>
-
-              {/* Nouvelle livraison */}
-              <Link href="/client/nouvelle-livraison"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-xs transition-all active:scale-95"
-                style={{ background: 'linear-gradient(135deg, #1a56db, #1e40af)' }}>
+              <Link href="/client/nouvelle-livraison" className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-xs active:scale-95 transition-all" style={{ background: 'linear-gradient(135deg, #1a56db, #1e40af)' }}>
                 <Plus size={13} />Livraison
               </Link>
             </div>
@@ -572,11 +631,7 @@ export default function ClientDashboard() {
 
           {/* Tabs desktop */}
           <div className="hidden sm:flex max-w-2xl mx-auto px-4 border-t border-gray-50">
-            {([
-              ['accueil', '🏠 Accueil'],
-              ['livraisons', `📦 Livraisons${livraisons.length > 0 ? ` (${livraisons.length})` : ''}`],
-              ['wallet', '💰 Wallet'],
-            ] as const).map(([t, label]) => (
+            {([['accueil', '🏠 Accueil'], ['livraisons', `📦 Livraisons${livraisons.length > 0 ? ` (${livraisons.length})` : ''}`], ['wallet', '💰 Wallet']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t as Tab)}
                 className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-400 hover:text-gray-700'}`}>
                 {label}
@@ -590,30 +645,27 @@ export default function ClientDashboard() {
           {/* ══ ACCUEIL ══ */}
           {tab === 'accueil' && (
             <div>
-              {/* Carte Google Maps */}
-              <div className={`relative ${mapHeight} transition-all duration-300 overflow-hidden bg-gray-100`}>
-                <GoogleMapView userLat={userLat} userLng={userLng} livraisons={livraisons} satellite={satellite} />
+              {/* Carte avec gestion moteur */}
+              <div className={`relative transition-all duration-300 overflow-hidden bg-gray-100 ${mapExpanded ? 'h-[60vh]' : 'h-52 sm:h-64'}`}>
+                <MapView userLat={userLat} userLng={userLng} livraisons={livraisons} satellite={satellite} />
 
-                {/* Contrôles carte */}
+                {/* Contrôles */}
                 <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2">
                   <div className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2 shadow-md flex-1">
                     <div className={`w-2 h-2 rounded-full ${userLat ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span className="text-xs font-semibold text-gray-700 truncate">
-                      {userLat ? '📍 Position détectée' : 'Position inconnue'}
-                    </span>
+                    <span className="text-xs font-semibold text-gray-700 truncate">{userLat ? '📍 Position détectée' : 'Position inconnue'}</span>
                   </div>
-                  {/* Toggle satellite */}
                   <button onClick={() => setSatellite(!satellite)}
                     className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all ${satellite ? 'bg-blue-600 text-white' : 'bg-white/95 text-gray-700'}`}>
-                    {satellite ? '🛰️ Satellite' : '🗺️ Plan'}
+                    {satellite ? '🛰️' : '🗺️'}
                   </button>
                   <button onClick={() => setMapExpanded(!mapExpanded)}
-                    className="bg-white/95 backdrop-blur-sm rounded-xl p-2 shadow-md text-gray-600 hover:bg-white">
+                    className="bg-white/95 backdrop-blur-sm rounded-xl p-2 shadow-md text-gray-600">
                     {mapExpanded ? <ArrowDown size={14} /> : <ArrowUpRight size={14} />}
                   </button>
                 </div>
 
-                {/* Barre recherche */}
+                {/* Barre de recherche */}
                 <div className="absolute bottom-3 left-3 right-3 z-10">
                   <Link href="/client/nouvelle-livraison"
                     className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-xl border border-gray-100 active:scale-[0.98] transition-all">
@@ -649,14 +701,14 @@ export default function ClientDashboard() {
                   ))}
                 </div>
 
-                {/* Types de course — Standard / Urgente / Planifiée */}
+                {/* Types de course */}
                 <div>
                   <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Nouvelle livraison</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { type: 'standard',   emoji: '⚡', label: 'Standard',  desc: 'Prix normal',        color: '#1a56db', bg: '#eff6ff',  border: '#bfdbfe' },
-                      { type: 'urgente',    emoji: '🚨', label: 'Urgente',   desc: '+30% prioritaire',   color: '#dc2626', bg: '#fef2f2',  border: '#fecaca' },
-                      { type: 'programmee', emoji: '📅', label: 'Planifiée', desc: 'Jusqu\'à J+15',      color: '#7c3aed', bg: '#f5f3ff',  border: '#ddd6fe' },
+                      { type: 'standard',   emoji: '⚡', label: 'Standard',  desc: 'Prix normal',      color: '#1a56db', bg: '#eff6ff', border: '#bfdbfe' },
+                      { type: 'urgente',    emoji: '🚨', label: 'Urgente',   desc: 'Priorité +30%',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+                      { type: 'programmee', emoji: '📅', label: 'Planifiée', desc: "Jusqu'à J+15",     color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
                     ].map(t => (
                       <Link key={t.type} href={`/client/nouvelle-livraison?type=${t.type}`}
                         className="rounded-2xl p-3 text-center transition-all active:scale-95 border"
@@ -682,17 +734,15 @@ export default function ClientDashboard() {
                     {activeDeliveries.slice(0, 3).map(l => {
                       const cfg = STATUT[l.statut] || STATUT.en_attente
                       return (
-                        <div key={l.id} className="flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0"
-                          style={{ background: cfg.bg }}>
-                          <span className="text-xl mt-0.5 shrink-0">{cfg.emoji}</span>
+                        <div key={l.id} className="flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0" style={{ background: cfg.bg }}>
+                          <span className="text-xl shrink-0 mt-0.5">{cfg.emoji}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold mb-0.5" style={{ color: cfg.color }}>{cfg.label}</p>
                             <p className="text-sm font-semibold text-gray-800 truncate">{l.depart_adresse}</p>
                             <p className="text-xs text-gray-500 truncate">→ {l.arrivee_adresse}</p>
                           </div>
                           <Link href={`/client/suivi/${l.id}`}
-                            className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-bold"
-                            style={{ background: '#1a56db' }}>
+                            className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-bold" style={{ background: '#1a56db' }}>
                             Suivre
                           </Link>
                         </div>
@@ -730,10 +780,10 @@ export default function ClientDashboard() {
                 {/* Actions rapides */}
                 <div className="grid grid-cols-4 gap-2.5">
                   {[
-                    { icon: '💰', label: 'Wallet',   href: '/client/wallet',           bg: '#22c55e' },
-                    { icon: '💬', label: 'Messages', href: '/client/messages',          bg: '#8b5cf6' },
-                    { icon: '👥', label: 'Contacts', href: '/client/contacts-favoris',  bg: '#f97316' },
-                    { icon: '⭐', label: 'Notes',    href: '/client/evaluation',        bg: '#eab308' },
+                    { icon: '💰', label: 'Wallet',   href: '/client/wallet',          bg: '#22c55e' },
+                    { icon: '💬', label: 'Messages', href: '/client/messages',         bg: '#8b5cf6' },
+                    { icon: '👥', label: 'Contacts', href: '/client/contacts-favoris', bg: '#f97316' },
+                    { icon: '⭐', label: 'Notes',    href: '/client/evaluation',       bg: '#eab308' },
                   ].map(a => (
                     <Link key={a.label} href={a.href}
                       className="rounded-2xl p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-all text-white"
@@ -759,23 +809,19 @@ export default function ClientDashboard() {
                 </Link>
               </div>
 
-              {/* Notifications non lues */}
-              {notifications.filter(n => !n.lu).length > 0 && (
+              {unreadCount > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bell size={15} className="text-blue-600" />
+                    <Bell size={14} className="text-blue-600" />
                     <span className="text-sm font-semibold text-blue-800">{unreadCount} notification(s) non lue(s)</span>
                   </div>
-                  <button onClick={markAllRead} className="text-blue-600 text-xs font-bold hover:underline">Tout lire</button>
+                  <button onClick={markAllRead} className="text-blue-600 text-xs font-bold">Tout lire</button>
                 </div>
               )}
 
-              {/* Filtres */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                  <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-4 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400" />
-                </div>
+                <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400" />
                 <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
                   className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-white text-gray-700">
                   <option value="tous">Tous les statuts</option>
@@ -818,8 +864,9 @@ export default function ClientDashboard() {
                           <div className="flex items-center gap-2 mt-2">
                             {!['livree', 'annulee'].includes(l.statut) && (
                               <Link href={`/client/suivi/${l.id}`}
-                                className="text-xs px-3 py-1 rounded-lg font-semibold text-white"
-                                style={{ background: '#1a56db' }}>🗺️ Suivre</Link>
+                                className="text-xs px-3 py-1 rounded-lg font-semibold text-white" style={{ background: '#1a56db' }}>
+                                🗺️ Suivre
+                              </Link>
                             )}
                             {l.statut === 'livree' && (
                               <Link href={`/client/evaluation/${l.id}`}
@@ -847,8 +894,7 @@ export default function ClientDashboard() {
                 <Link href="/client/wallet" className="text-blue-600 text-sm font-semibold">Gérer →</Link>
               </div>
 
-              <div className="rounded-3xl p-6 text-white relative overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%)' }}>
+              <div className="rounded-3xl p-6 text-white relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%)' }}>
                 <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10" style={{ background: 'white', transform: 'translate(30%,-30%)' }} />
                 <p className="text-white/60 text-sm mb-1">Solde disponible</p>
                 <div className="flex items-baseline gap-2 mb-5">
@@ -856,22 +902,26 @@ export default function ClientDashboard() {
                   <span className="text-lg opacity-70">FCFA</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                    <p className="text-white/50 text-xs">Total rechargé</p>
-                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet?.total_gains || 0)}</p>
-                  </div>
-                  <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                    <p className="text-white/50 text-xs">Total dépensé</p>
-                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet?.total_retraits || 0)}</p>
-                  </div>
+                  {[
+                    { label: 'Total rechargé', val: fPrice(wallet?.total_gains || 0) },
+                    { label: 'Total dépensé',  val: fPrice(wallet?.total_retraits || 0) },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                      <p className="text-white/50 text-xs">{s.label}</p>
+                      <p className="font-bold text-sm mt-0.5">{s.val}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/client/wallet" className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all" style={{ background: '#22c55e' }}>
+                <Link href="/client/wallet"
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all"
+                  style={{ background: '#22c55e' }}>
                   <ArrowDown size={15} />Recharger
                 </Link>
-                <Link href="/client/wallet" className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm border-2 border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all">
+                <Link href="/client/wallet"
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm border-2 border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all">
                   <TrendingUp size={15} />Historique
                 </Link>
               </div>
@@ -909,42 +959,41 @@ export default function ClientDashboard() {
         </main>
 
         {/* ── BOTTOM NAV MOBILE ── */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white border-t border-gray-100"
-          style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
+        <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white border-t border-gray-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
           <div className="flex max-w-2xl mx-auto">
-            {([
-              ['accueil', '🏠', 'Accueil', undefined],
-              ['livraisons', '📦', 'Livraisons', undefined],
-              ['', 'plus', '+', undefined], // bouton central
-              ['wallet', '💰', 'Wallet', undefined],
-              ['parametres', '⚙️', 'Paramètres', undefined],
-            ] as const).map(([t, icon, label]) => {
-              if (t === '' && icon === 'plus') {
-                return (
-                  <Link key="plus" href="/client/nouvelle-livraison"
-                    className="flex-1 flex flex-col items-center py-1.5 relative">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl -mt-5 shadow-lg"
-                      style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>+</div>
-                    <span className="text-[10px] font-semibold text-gray-400 mt-0.5">Livrer</span>
-                  </Link>
-                )
-              }
-              const isActive = tab === t
-              return (
-                <button key={t} onClick={() => {
-                  if (t === 'parametres') setShowParams(true)
-                  else setTab(t as Tab)
-                }}
-                  className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
-                  <span className="text-lg leading-none">{icon}</span>
-                  <span className="text-[10px] font-semibold">{label}</span>
-                  {t === 'livraisons' && unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                  )}
-                  {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
-                </button>
-              )
-            })}
+            {/* Accueil */}
+            <button onClick={() => setTab('accueil')}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'accueil' ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className="text-lg">🏠</span>
+              <span className="text-[10px] font-semibold">Accueil</span>
+              {tab === 'accueil' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
+            </button>
+            {/* Livraisons */}
+            <button onClick={() => setTab('livraisons')}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'livraisons' ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className="text-lg">📦</span>
+              <span className="text-[10px] font-semibold">Livraisons</span>
+              {unreadCount > 0 && <span className="absolute top-1.5 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              {tab === 'livraisons' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
+            </button>
+            {/* Bouton + central */}
+            <Link href="/client/nouvelle-livraison" className="flex-1 flex flex-col items-center py-1.5 relative">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl -mt-5 shadow-xl" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>+</div>
+              <span className="text-[10px] font-semibold text-gray-400 mt-0.5">Livrer</span>
+            </Link>
+            {/* Wallet */}
+            <button onClick={() => setTab('wallet')}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'wallet' ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className="text-lg">💰</span>
+              <span className="text-[10px] font-semibold">Wallet</span>
+              {tab === 'wallet' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
+            </button>
+            {/* Paramètres */}
+            <button onClick={() => setShowParams(true)}
+              className="flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative text-gray-400">
+              <span className="text-lg">⚙️</span>
+              <span className="text-[10px] font-semibold">Réglages</span>
+            </button>
           </div>
         </nav>
       </div>
