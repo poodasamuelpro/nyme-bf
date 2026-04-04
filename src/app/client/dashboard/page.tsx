@@ -1,4 +1,10 @@
 // src/app/client/dashboard/page.tsx
+// ✅ Carte Google Maps (satellite toggle)
+// ✅ Photo profil en header
+// ✅ Paramètres complets (modifier profil, photo, adresses, sécurité)
+// ✅ Types de course : Standard / Urgente / Planifiée (immédiate supprimée)
+// ✅ Vérification rôle stricte
+// ✅ Responsive : mobile = app pure (pas de header/footer site)
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -7,151 +13,387 @@ import { supabase } from '@/lib/supabase'
 import type { Utilisateur, Livraison, Wallet, Notification, TransactionWallet } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import {
-  Bell, Plus, Search, LogOut, Package, Wallet as WalletIcon,
-  MessageSquare, Star, Settings, ChevronRight, MapPin,
-  ArrowUpRight, Clock, CheckCircle, XCircle, Users,
-  Navigation, RefreshCw, Phone, ChevronDown, Menu, X,
-  TrendingUp, Zap, ArrowDown, ArrowUp, Home, List,
+  Bell, Plus, Package, Star, Settings, ChevronRight, MapPin,
+  ArrowUpRight, CheckCircle, Zap, ArrowDown, ArrowUp,
+  TrendingUp, Home, List, Wallet as WalletIcon, Camera,
+  Edit3, Shield, Phone, Mail, LogOut, X, Save, Eye, EyeOff,
+  Navigation, RefreshCw, Clock,
 } from 'lucide-react'
 
-type Tab = 'accueil' | 'livraisons' | 'wallet' | 'notifications'
+type Tab = 'accueil' | 'livraisons' | 'wallet' | 'parametres'
 
 const STATUT: Record<string, { label: string; emoji: string; bg: string; text: string; color: string }> = {
-  en_attente:       { label: 'En attente',     emoji: '🕐', bg: 'bg-amber-50',   text: 'text-amber-700',  color: '#f59e0b' },
-  acceptee:         { label: 'Acceptée',       emoji: '✅', bg: 'bg-blue-50',    text: 'text-blue-700',   color: '#3b82f6' },
-  en_rout_depart:   { label: 'En route ↑',     emoji: '🛵', bg: 'bg-purple-50',  text: 'text-purple-700', color: '#8b5cf6' },
-  colis_recupere:   { label: 'Colis récupéré', emoji: '📦', bg: 'bg-indigo-50',  text: 'text-indigo-700', color: '#6366f1' },
-  en_route_arrivee: { label: 'En livraison',   emoji: '🚀', bg: 'bg-orange-50',  text: 'text-orange-700', color: '#f97316' },
-  livree:           { label: 'Livrée',         emoji: '🎉', bg: 'bg-green-50',   text: 'text-green-700',  color: '#22c55e' },
-  annulee:          { label: 'Annulée',        emoji: '❌', bg: 'bg-red-50',     text: 'text-red-700',    color: '#ef4444' },
+  en_attente:       { label: 'En attente',     emoji: '🕐', bg: '#fffbeb', text: '#92400e',  color: '#f59e0b' },
+  acceptee:         { label: 'Acceptée',       emoji: '✅', bg: '#eff6ff', text: '#1e40af',  color: '#3b82f6' },
+  en_rout_depart:   { label: 'En route ↑',     emoji: '🛵', bg: '#f5f3ff', text: '#5b21b6',  color: '#8b5cf6' },
+  colis_recupere:   { label: 'Colis récupéré', emoji: '📦', bg: '#eef2ff', text: '#3730a3',  color: '#6366f1' },
+  en_route_arrivee: { label: 'En livraison',   emoji: '🚀', bg: '#fff7ed', text: '#9a3412',  color: '#f97316' },
+  livree:           { label: 'Livrée',         emoji: '🎉', bg: '#f0fdf4', text: '#166534',  color: '#22c55e' },
+  annulee:          { label: 'Annulée',        emoji: '❌', bg: '#fef2f2', text: '#991b1b',  color: '#ef4444' },
 }
 
-const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' FCFA'
+const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FCFA'
 const fDate  = (d: string) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d))
 
-// Composant carte Leaflet SSR-safe
-function MapView({ lat, lng, label }: { lat: number; lng: number; label: string }) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstance = useRef<unknown>(null)
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !mapRef.current) return
-    let mounted = true
-
-    import('leaflet').then(L => {
-      if (!mounted || !mapRef.current) return
-      // Éviter double init
-      if ((mapRef.current as HTMLElement & { _leaflet_id?: number })._leaflet_id) return
-
-      const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false }).setView([lat, lng], 15)
-      mapInstance.current = map
-
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-      }).addTo(map)
-
-      const icon = L.divIcon({
-        html: `<div style="background:#1a56db;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
-        iconSize: [16, 16],
-        className: '',
-      })
-      L.marker([lat, lng], { icon }).addTo(map).bindPopup(label)
-    }).catch(() => {})
-
-    return () => {
-      mounted = false
-      if (mapInstance.current) {
-        try { (mapInstance.current as { remove: () => void }).remove() } catch {}
-        mapInstance.current = null
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lng])
-
-  return (
-    <>
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <div ref={mapRef} style={{ height: '100%', width: '100%', zIndex: 1 }} />
-    </>
-  )
+// ── GOOGLE MAPS COMPONENT ────────────────────────────────────────────────
+declare global {
+  interface Window {
+    google: typeof google;
+    initGoogleMap?: () => void;
+  }
 }
 
-// Carte principale du dashboard avec position client
-function DashboardMap({ userLat, userLng, livraisons }: {
-  userLat: number | null; userLng: number | null; livraisons: Livraison[]
+function GoogleMapView({
+  userLat, userLng, livraisons, satellite = false
+}: {
+  userLat: number | null; userLng: number | null;
+  livraisons: Livraison[]; satellite?: boolean
 }) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstance = useRef<unknown>(null)
+  const mapInstance = useRef<google.maps.Map | null>(null)
+  const markersRef = useRef<google.maps.Marker[]>([])
+  const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState(false)
 
-  const defaultLat = userLat ?? 12.3714
-  const defaultLng = userLng ?? -1.5197
+  const lat = userLat ?? 12.3714
+  const lng = userLng ?? -1.5197
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !mapRef.current) return
-    let mounted = true
-
-    import('leaflet').then(L => {
-      if (!mounted || !mapRef.current) return
-      if ((mapRef.current as HTMLElement & { _leaflet_id?: number })._leaflet_id) return
-
-      const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([defaultLat, defaultLng], 13)
+  const initMap = useCallback(() => {
+    if (!mapRef.current || !window.google) return
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat, lng },
+        zoom: 14,
+        mapTypeId: satellite ? 'hybrid' : 'roadmap',
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        styles: satellite ? [] : [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
+        ],
+      })
       mapInstance.current = map
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
-      L.control.zoom({ position: 'bottomright' }).addTo(map)
-
-      // Marker position utilisateur
-      const userIcon = L.divIcon({
-        html: `<div style="background:#1a56db;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 10px rgba(26,86,219,0.5)"></div>`,
-        iconSize: [18, 18], className: '',
-      })
+      // Marker utilisateur (pulsant)
       if (userLat && userLng) {
-        L.marker([userLat, userLng], { icon: userIcon }).addTo(map).bindPopup('📍 Vous êtes ici')
+        new window.google.maps.Marker({
+          position: { lat: userLat, lng: userLng },
+          map,
+          icon: {
+            url: 'data:image/svg+xml;base64,' + btoa(`
+              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="14" fill="#1a56db" opacity="0.2"/>
+                <circle cx="16" cy="16" r="8" fill="#1a56db" stroke="white" stroke-width="2.5"/>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(32, 32),
+            anchor: new window.google.maps.Point(16, 16),
+          },
+          title: 'Votre position',
+        })
       }
 
       // Markers livraisons actives
-      livraisons.filter(l => !['livree','annulee'].includes(l.statut)).forEach(l => {
+      livraisons.filter(l => !['livree', 'annulee'].includes(l.statut)).forEach(l => {
+        if (!l.arrivee_lat || !l.arrivee_lng) return
         const cfg = STATUT[l.statut]
-        const icon = L.divIcon({
-          html: `<div style="background:${cfg?.color || '#f97316'};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
-          iconSize: [14, 14], className: '',
+        const marker = new window.google.maps.Marker({
+          position: { lat: l.arrivee_lat, lng: l.arrivee_lng },
+          map,
+          icon: {
+            url: 'data:image/svg+xml;base64,' + btoa(`
+              <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="10" cy="10" r="9" fill="${cfg?.color || '#f97316'}" stroke="white" stroke-width="2"/>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(20, 20),
+            anchor: new window.google.maps.Point(10, 10),
+          },
         })
-        if (l.arrivee_lat && l.arrivee_lng) {
-          L.marker([l.arrivee_lat, l.arrivee_lng], { icon }).addTo(map)
-            .bindPopup(`${cfg?.emoji || '📦'} ${l.arrivee_adresse}`)
-        }
+        const info = new window.google.maps.InfoWindow({
+          content: `<div style="font-family:sans-serif;font-size:12px;font-weight:600;padding:4px 6px">${cfg?.emoji} ${l.arrivee_adresse}</div>`,
+        })
+        marker.addListener('click', () => info.open(map, marker))
+        markersRef.current.push(marker)
       })
-    }).catch(() => { if (mounted) setMapError(true) })
 
-    return () => {
-      mounted = false
-      if (mapInstance.current) {
-        try { (mapInstance.current as { remove: () => void }).remove() } catch {}
-        mapInstance.current = null
-      }
+      setMapReady(true)
+    } catch {
+      setMapError(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultLat, defaultLng])
+  }, [lat, lng, satellite, userLat, userLng, livraisons])
+
+  useEffect(() => {
+    if (window.google?.maps) { initMap(); return }
+    const script = document.createElement('script')
+    // Utilise la clé Google Maps du projet (à configurer dans .env)
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=fr`
+    script.async = true
+    script.defer = true
+    script.onload = initMap
+    script.onerror = () => setMapError(true)
+    document.head.appendChild(script)
+    return () => { markersRef.current.forEach(m => m.setMap(null)); markersRef.current = [] }
+  }, [initMap])
+
+  useEffect(() => {
+    if (mapInstance.current && window.google) {
+      mapInstance.current.setMapTypeId(satellite ? 'hybrid' : 'roadmap')
+    }
+  }, [satellite])
 
   if (mapError) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-500">
-        <MapPin size={32} className="text-blue-300 mb-2" />
-        <p className="text-sm font-medium">Carte indisponible</p>
-        <p className="text-xs text-gray-400">Activez la géolocalisation</p>
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100">
+        <MapPin size={28} className="text-blue-300 mb-2" />
+        <p className="text-sm font-semibold text-gray-500">Carte indisponible</p>
+        <p className="text-xs text-gray-400 mt-0.5">Configurez NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
       </div>
     )
   }
 
   return (
-    <>
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <div ref={mapRef} style={{ height: '100%', width: '100%', zIndex: 1 }} />
-    </>
+    <div ref={mapRef} className="w-full h-full" style={{ opacity: mapReady ? 1 : 0.5, transition: 'opacity 0.3s' }} />
   )
 }
 
+// ── MODAL PARAMÈTRES ─────────────────────────────────────────────────────
+function ParametresPanel({
+  user, wallet, onClose, onUpdate
+}: {
+  user: Utilisateur; wallet: Wallet | null;
+  onClose: () => void; onUpdate: (u: Utilisateur) => void
+}) {
+  const [section, setSection] = useState<'profil' | 'securite' | 'adresses' | 'notifs'>('profil')
+  const [form, setForm] = useState({ nom: user.nom, telephone: user.telephone || '', email: user.email || '' })
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [showPw, setShowPw] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleSaveProfile = async () => {
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('utilisateurs').update({
+        nom: form.nom.trim(),
+        telephone: form.telephone.trim(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', user.id)
+      if (error) throw error
+      toast.success('Profil mis à jour ✅')
+      onUpdate({ ...user, nom: form.nom.trim(), telephone: form.telephone.trim() })
+    } catch { toast.error('Erreur lors de la mise à jour') }
+    finally { setSaving(false) }
+  }
+
+  const handleChangePassword = async () => {
+    if (!pwForm.current) { toast.error('Mot de passe actuel requis'); return }
+    if (pwForm.next.length < 6) { toast.error('Nouveau mot de passe trop court'); return }
+    if (pwForm.next !== pwForm.confirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+    setSaving(true)
+    try {
+      const { error: loginErr } = await supabase.auth.signInWithPassword({ email: user.email!, password: pwForm.current })
+      if (loginErr) throw new Error('Mot de passe actuel incorrect')
+      const { error } = await supabase.auth.updateUser({ password: pwForm.next })
+      if (error) throw error
+      toast.success('Mot de passe modifié ✅')
+      setPwForm({ current: '', next: '', confirm: '' })
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Erreur') }
+    finally { setSaving(false) }
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { toast.error('Fichier trop lourd (max 5 Mo)'); return }
+    setUploadingPhoto(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `avatars/${user.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      await supabase.from('utilisateurs').update({ avatar_url: publicUrl }).eq('id', user.id)
+      toast.success('Photo mise à jour ✅')
+      onUpdate({ ...user, avatar_url: publicUrl })
+    } catch { toast.error('Erreur upload photo') }
+    finally { setUploadingPhoto(false) }
+  }
+
+  const menus = [
+    { id: 'profil' as const, icon: '👤', label: 'Mon profil' },
+    { id: 'securite' as const, icon: '🔒', label: 'Sécurité' },
+    { id: 'adresses' as const, icon: '📍', label: 'Adresses' },
+    { id: 'notifs' as const, icon: '🔔', label: 'Notifications' },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden flex flex-col" style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.15)' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <h2 className="font-black text-gray-900 text-lg">Paramètres</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X size={15} className="text-gray-600" />
+          </button>
+        </div>
+
+        {/* Photo profil */}
+        <div className="flex flex-col items-center pt-5 pb-3 border-b border-gray-50">
+          <div className="relative">
+            {user.avatar_url
+              ? <img src={user.avatar_url} alt={user.nom} className="w-20 h-20 rounded-full object-cover border-4 border-white" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
+              : <div className="w-20 h-20 rounded-full flex items-center justify-center text-white font-black text-3xl" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
+                  {user.nom.charAt(0).toUpperCase()}
+                </div>
+            }
+            <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto}
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-lg transition-all active:scale-95"
+              style={{ background: '#1a56db' }}>
+              {uploadingPhoto ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Camera size={14} />}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          </div>
+          <p className="font-bold text-gray-900 mt-2">{user.nom}</p>
+          <p className="text-gray-400 text-xs">{user.email}</p>
+        </div>
+
+        {/* Tabs navigation */}
+        <div className="flex px-4 py-2 gap-1 border-b border-gray-100 overflow-x-auto">
+          {menus.map(m => (
+            <button key={m.id} onClick={() => setSection(m.id)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all"
+              style={section === m.id ? { background: '#1a56db', color: 'white' } : { color: '#6b7280' }}>
+              <span>{m.icon}</span>{m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Contenu */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+          {section === 'profil' && (
+            <>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Nom complet</label>
+                <input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
+                  placeholder="Votre nom complet" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Téléphone</label>
+                <input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
+                  placeholder="+226 70 00 00 00" type="tel" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5">Email</label>
+                <input value={form.email} disabled
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 text-gray-400 text-sm outline-none cursor-not-allowed" />
+                <p className="text-xs text-gray-400 mt-1 ml-1">L'email ne peut pas être modifié ici</p>
+              </div>
+              <button onClick={handleSaveProfile} disabled={saving}
+                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                style={{ background: '#1a56db' }}>
+                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={15} />}
+                {saving ? 'Sauvegarde...' : 'Enregistrer les modifications'}
+              </button>
+            </>
+          )}
+
+          {section === 'securite' && (
+            <>
+              <div className="bg-blue-50 rounded-2xl p-4 mb-2">
+                <p className="text-blue-800 text-xs font-semibold flex items-center gap-2">
+                  <Shield size={14} />Changement de mot de passe
+                </p>
+              </div>
+              {[
+                { key: 'current' as const, label: 'Mot de passe actuel', placeholder: '••••••••' },
+                { key: 'next' as const, label: 'Nouveau mot de passe', placeholder: 'Minimum 6 caractères' },
+                { key: 'confirm' as const, label: 'Confirmer le nouveau', placeholder: 'Répétez le nouveau mot de passe' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5">{f.label}</label>
+                  <div className="relative">
+                    <input type={showPw ? 'text' : 'password'} value={pwForm[f.key]}
+                      onChange={e => setPwForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      className="w-full pl-4 pr-11 py-3 rounded-2xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 transition-colors"
+                      placeholder={f.placeholder} />
+                    {f.key === 'current' && (
+                      <button type="button" onClick={() => setShowPw(!showPw)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <button onClick={handleChangePassword} disabled={saving}
+                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                style={{ background: '#1a56db' }}>
+                {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Shield size={15} />}
+                Modifier le mot de passe
+              </button>
+            </>
+          )}
+
+          {section === 'adresses' && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500 font-medium">Gérez vos adresses favorites pour commander plus rapidement.</p>
+              <Link href="/client/favoris"
+                className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-colors">
+                <span className="text-2xl">📍</span>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-900 text-sm">Gérer mes adresses</p>
+                  <p className="text-gray-500 text-xs">Maison, Bureau, et autres lieux</p>
+                </div>
+                <ChevronRight size={15} className="text-gray-400" />
+              </Link>
+              <Link href="/client/contacts-favoris"
+                className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100 hover:bg-green-100 transition-colors">
+                <span className="text-2xl">👥</span>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-900 text-sm">Contacts favoris</p>
+                  <p className="text-gray-500 text-xs">Destinataires fréquents</p>
+                </div>
+                <ChevronRight size={15} className="text-gray-400" />
+              </Link>
+            </div>
+          )}
+
+          {section === 'notifs' && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500 font-medium">Préférences de notifications</p>
+              {[
+                { label: 'Livraisons en cours', sub: 'Mises à jour statut en temps réel', on: true },
+                { label: 'Promotions NYME', sub: 'Offres spéciales et nouveautés', on: false },
+                { label: 'Rappels de paiement', sub: 'Alertes solde wallet', on: true },
+              ].map((n, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{n.label}</p>
+                    <p className="text-gray-400 text-xs">{n.sub}</p>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${n.on ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all ${n.on ? 'left-5' : 'left-0.5'}`} style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DASHBOARD PRINCIPAL ──────────────────────────────────────────────────
 export default function ClientDashboard() {
   const router = useRouter()
   const [user,          setUser]          = useState<Utilisateur | null>(null)
@@ -165,8 +407,9 @@ export default function ClientDashboard() {
   const [filterStatut,  setFilterStatut]  = useState('tous')
   const [userLat,       setUserLat]       = useState<number | null>(null)
   const [userLng,       setUserLng]       = useState<number | null>(null)
-  const [menuOpen,      setMenuOpen]      = useState(false)
   const [mapExpanded,   setMapExpanded]   = useState(false)
+  const [satellite,     setSatellite]     = useState(false)
+  const [showParams,    setShowParams]    = useState(false)
 
   const loadLivraisons = useCallback(async (uid: string) => {
     const { data } = await supabase.from('livraisons')
@@ -193,17 +436,25 @@ export default function ClientDashboard() {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.replace('/login'); return }
+
       const { data: u } = await supabase.from('utilisateurs').select('*').eq('id', session.user.id).single()
       if (!u) { router.replace('/login'); return }
-      if (u.role === 'coursier')   { router.replace('/coursier/dashboard-new'); return }
-      if (u.role === 'admin')      { router.replace('/admin-x9k2m/dashboard'); return }
-      if (u.role === 'partenaire') { router.replace('/partenaires/dashboard'); return }
+
+      // Vérification rôle stricte
+      if (u.role !== 'client') {
+        const redirects: Record<string, string> = {
+          coursier: '/coursier/dashboard-new',
+          admin: '/admin-x9k2m/dashboard',
+          partenaire: '/partenaires/dashboard',
+        }
+        router.replace(redirects[u.role] || '/login')
+        return
+      }
 
       setUser(u as Utilisateur)
       await Promise.all([loadLivraisons(session.user.id), loadWallet(session.user.id), loadNotifications(session.user.id)])
       setLoading(false)
 
-      // Géolocalisation
       navigator.geolocation?.getCurrentPosition(
         pos => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude) },
         () => {}
@@ -228,7 +479,7 @@ export default function ClientDashboard() {
     if (!user) return
     await supabase.from('notifications').update({ lu: true }).eq('user_id', user.id).eq('lu', false)
     setNotifications(prev => prev.map(n => ({ ...n, lu: true })))
-    toast.success('Toutes les notifications marquées comme lues')
+    toast.success('Tout marqué comme lu')
   }
 
   const filteredLivraisons = livraisons.filter(l => {
@@ -245,10 +496,10 @@ export default function ClientDashboard() {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f172a' }}>
       <div className="flex flex-col items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
           <span className="text-white font-black text-2xl">N</span>
         </div>
-        <div className="w-8 h-8 border-3 border-white/20 border-t-orange-400 rounded-full animate-spin" style={{ borderWidth: 3 }} />
+        <div className="w-7 h-7 border-2 border-white/20 border-t-orange-400 rounded-full animate-spin" />
       </div>
     </div>
   )
@@ -256,299 +507,307 @@ export default function ClientDashboard() {
   const mapHeight = mapExpanded ? 'h-[60vh]' : 'h-52 sm:h-64'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <>
+      {showParams && user && (
+        <ParametresPanel
+          user={user} wallet={wallet}
+          onClose={() => setShowParams(false)}
+          onUpdate={u => { setUser(u); setShowParams(false) }}
+        />
+      )}
 
-      {/* ── HEADER STICKY ── */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100" style={{ boxShadow: '0 1px 12px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-5xl mx-auto px-4 flex items-center justify-between h-14">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
-              <span className="text-white font-black text-sm">N</span>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+
+        {/* ── HEADER — mobile : app pure (pas de nav site) ── */}
+        <header className="sticky top-0 z-40 bg-white border-b border-gray-100" style={{ boxShadow: '0 1px 10px rgba(0,0,0,0.05)' }}>
+          <div className="max-w-2xl mx-auto px-4 flex items-center justify-between h-14">
+
+            {/* Logo + nom */}
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
+                <span className="text-white font-black text-sm">N</span>
+              </div>
+              <div className="hidden sm:block">
+                <p className="font-bold text-gray-900 text-sm leading-none">Bonjour {user?.nom?.split(' ')[0]} 👋</p>
+                <p className="text-gray-400 text-[10px]">Espace client</p>
+              </div>
+              <p className="sm:hidden font-bold text-gray-900 text-sm">{user?.nom?.split(' ')[0]} 👋</p>
             </div>
-            <div className="hidden sm:block">
-              <p className="font-bold text-gray-900 text-sm leading-none">Bonjour {user?.nom?.split(' ')[0]} 👋</p>
-              <p className="text-gray-400 text-[11px]">Espace client</p>
+
+            {/* Actions droite */}
+            <div className="flex items-center gap-1.5">
+              {/* Notifs */}
+              <button onClick={() => setTab('livraisons')}
+                className="relative w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
+                <Bell size={17} className="text-gray-600" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center bg-red-500">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+              </button>
+
+              {/* Paramètres */}
+              <button onClick={() => setShowParams(true)}
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
+                <Settings size={16} className="text-gray-600" />
+              </button>
+
+              {/* Photo profil */}
+              <button onClick={() => setShowParams(true)} className="shrink-0">
+                {user?.avatar_url
+                  ? <img src={user.avatar_url} alt={user.nom} className="w-8 h-8 rounded-full object-cover border-2 border-blue-100" />
+                  : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>
+                      {user?.nom?.charAt(0).toUpperCase()}
+                    </div>
+                }
+              </button>
+
+              {/* Nouvelle livraison */}
+              <Link href="/client/nouvelle-livraison"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-xs transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #1a56db, #1e40af)' }}>
+                <Plus size={13} />Livraison
+              </Link>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Notifs */}
-            <button onClick={() => setTab('notifications')}
-              className="relative w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
-              <Bell size={18} className="text-gray-600" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                  style={{ background: '#ef4444' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-            </button>
-
-            {/* Bouton principale */}
-            <Link href="/client/nouvelle-livraison"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-xs transition-all active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #1a56db, #1e40af)' }}>
-              <Plus size={14} />
-              <span className="hidden sm:inline">Nouvelle livraison</span>
-              <span className="sm:hidden">Livraison</span>
-            </Link>
-
-            {/* Menu mobile */}
-            <button onClick={() => setMenuOpen(!menuOpen)}
-              className="sm:hidden w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center">
-              {menuOpen ? <X size={18} className="text-gray-600" /> : <Menu size={18} className="text-gray-600" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Menu mobile déroulant */}
-        {menuOpen && (
-          <div className="sm:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1">
-            <p className="text-xs text-gray-400 mb-1">Bonjour {user?.nom} 👋</p>
-            {[
-              { t: 'accueil' as Tab, icon: '🏠', label: 'Accueil' },
-              { t: 'livraisons' as Tab, icon: '📦', label: 'Livraisons' },
-              { t: 'wallet' as Tab, icon: '💰', label: 'Wallet' },
-              { t: 'notifications' as Tab, icon: '🔔', label: `Notifs${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
-            ].map(({ t, icon, label }) => (
-              <button key={t} onClick={() => { setTab(t); setMenuOpen(false) }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === t ? 'text-blue-700 bg-blue-50' : 'text-gray-600 hover:bg-gray-50'}`}>
-                <span>{icon}</span>{label}
+          {/* Tabs desktop */}
+          <div className="hidden sm:flex max-w-2xl mx-auto px-4 border-t border-gray-50">
+            {([
+              ['accueil', '🏠 Accueil'],
+              ['livraisons', `📦 Livraisons${livraisons.length > 0 ? ` (${livraisons.length})` : ''}`],
+              ['wallet', '💰 Wallet'],
+            ] as const).map(([t, label]) => (
+              <button key={t} onClick={() => setTab(t as Tab)}
+                className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-400 hover:text-gray-700'}`}>
+                {label}
               </button>
             ))}
           </div>
-        )}
+        </header>
 
-        {/* Tabs desktop */}
-        <div className="hidden sm:flex max-w-5xl mx-auto px-4 border-t border-gray-100 overflow-x-auto">
-          {([
-            ['accueil', '🏠 Accueil'],
-            ['livraisons', `📦 Livraisons${livraisons.length > 0 ? ` (${livraisons.length})` : ''}`],
-            ['wallet', '💰 Wallet'],
-            ['notifications', `🔔 Notifs${unreadCount > 0 ? ` (${unreadCount})` : ''}`],
-          ] as const).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t as Tab)}
-              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </header>
+        <main className="flex-1 max-w-2xl mx-auto w-full px-0 sm:px-4 pb-24">
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-0 sm:px-4 pb-20">
+          {/* ══ ACCUEIL ══ */}
+          {tab === 'accueil' && (
+            <div>
+              {/* Carte Google Maps */}
+              <div className={`relative ${mapHeight} transition-all duration-300 overflow-hidden bg-gray-100`}>
+                <GoogleMapView userLat={userLat} userLng={userLng} livraisons={livraisons} satellite={satellite} />
 
-        {/* ══════════════════ ACCUEIL ══════════════════ */}
-        {tab === 'accueil' && (
-          <div>
-            {/* CARTE PRINCIPALE — toujours visible en premier */}
-            <div className={`relative ${mapHeight} transition-all duration-300 overflow-hidden bg-gray-200`}>
-              <DashboardMap userLat={userLat} userLng={userLng} livraisons={livraisons} />
-
-              {/* Overlay top */}
-              <div className="absolute top-0 left-0 right-0 z-10 p-3 flex items-center justify-between">
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2 shadow-lg">
-                  <div className={`w-2 h-2 rounded-full ${userLat ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                  <span className="text-xs font-semibold text-gray-700">
-                    {userLat ? 'Position détectée' : 'Position inconnue'}
-                  </span>
+                {/* Contrôles carte */}
+                <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2">
+                  <div className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2 shadow-md flex-1">
+                    <div className={`w-2 h-2 rounded-full ${userLat ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <span className="text-xs font-semibold text-gray-700 truncate">
+                      {userLat ? '📍 Position détectée' : 'Position inconnue'}
+                    </span>
+                  </div>
+                  {/* Toggle satellite */}
+                  <button onClick={() => setSatellite(!satellite)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-all ${satellite ? 'bg-blue-600 text-white' : 'bg-white/95 text-gray-700'}`}>
+                    {satellite ? '🛰️ Satellite' : '🗺️ Plan'}
+                  </button>
+                  <button onClick={() => setMapExpanded(!mapExpanded)}
+                    className="bg-white/95 backdrop-blur-sm rounded-xl p-2 shadow-md text-gray-600 hover:bg-white">
+                    {mapExpanded ? <ArrowDown size={14} /> : <ArrowUpRight size={14} />}
+                  </button>
                 </div>
-                <button onClick={() => setMapExpanded(!mapExpanded)}
-                  className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-1.5 shadow-lg text-xs font-semibold text-gray-700 hover:bg-white transition-colors">
-                  {mapExpanded ? <><ChevronDown size={14} />Réduire</> : <><ArrowUpRight size={14} />Agrandir</>}
-                </button>
+
+                {/* Barre recherche */}
+                <div className="absolute bottom-3 left-3 right-3 z-10">
+                  <Link href="/client/nouvelle-livraison"
+                    className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-xl border border-gray-100 active:scale-[0.98] transition-all">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#1a56db' }}>
+                      <MapPin size={14} className="text-white" />
+                    </div>
+                    <span className="text-gray-400 text-sm flex-1">Où voulez-vous livrer ?</span>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-orange-500 shrink-0">
+                      <ArrowUpRight size={13} className="text-white" />
+                    </div>
+                  </Link>
+                </div>
               </div>
 
-              {/* Barre recherche destination */}
-              <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
+              <div className="px-4 sm:px-0 space-y-4 mt-4">
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { icon: Package,     label: 'Total',    val: String(livraisons.length),                                    color: '#1a56db', bg: '#eff6ff' },
+                    { icon: Zap,         label: 'En cours', val: String(activeDeliveries.length),                              color: '#8b5cf6', bg: '#f5f3ff' },
+                    { icon: CheckCircle, label: 'Livrées',  val: String(livraisons.filter(l => l.statut === 'livree').length), color: '#22c55e', bg: '#f0fdf4' },
+                    { icon: WalletIcon,  label: 'Solde',    val: fPrice(wallet?.solde || 0),                                   color: '#f97316', bg: '#fff7ed' },
+                  ].map(s => (
+                    <div key={s.label} className="bg-white rounded-2xl p-3.5 border border-gray-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.bg }}>
+                        <s.icon size={16} style={{ color: s.color }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-gray-400 text-[11px] font-medium">{s.label}</p>
+                        <p className="font-black text-gray-900 text-sm truncate">{s.val}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Types de course — Standard / Urgente / Planifiée */}
+                <div>
+                  <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Nouvelle livraison</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { type: 'standard',   emoji: '⚡', label: 'Standard',  desc: 'Prix normal',        color: '#1a56db', bg: '#eff6ff',  border: '#bfdbfe' },
+                      { type: 'urgente',    emoji: '🚨', label: 'Urgente',   desc: '+30% prioritaire',   color: '#dc2626', bg: '#fef2f2',  border: '#fecaca' },
+                      { type: 'programmee', emoji: '📅', label: 'Planifiée', desc: 'Jusqu\'à J+15',      color: '#7c3aed', bg: '#f5f3ff',  border: '#ddd6fe' },
+                    ].map(t => (
+                      <Link key={t.type} href={`/client/nouvelle-livraison?type=${t.type}`}
+                        className="rounded-2xl p-3 text-center transition-all active:scale-95 border"
+                        style={{ background: t.bg, borderColor: t.border }}>
+                        <span className="text-2xl block mb-1">{t.emoji}</span>
+                        <p className="font-bold text-xs" style={{ color: t.color }}>{t.label}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{t.desc}</p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Livraisons actives */}
+                {activeDeliveries.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                        <h2 className="font-bold text-gray-900 text-sm">En cours ({activeDeliveries.length})</h2>
+                      </div>
+                      <button onClick={() => setTab('livraisons')} className="text-xs font-semibold text-blue-600">Tout voir</button>
+                    </div>
+                    {activeDeliveries.slice(0, 3).map(l => {
+                      const cfg = STATUT[l.statut] || STATUT.en_attente
+                      return (
+                        <div key={l.id} className="flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0"
+                          style={{ background: cfg.bg }}>
+                          <span className="text-xl mt-0.5 shrink-0">{cfg.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold mb-0.5" style={{ color: cfg.color }}>{cfg.label}</p>
+                            <p className="text-sm font-semibold text-gray-800 truncate">{l.depart_adresse}</p>
+                            <p className="text-xs text-gray-500 truncate">→ {l.arrivee_adresse}</p>
+                          </div>
+                          <Link href={`/client/suivi/${l.id}`}
+                            className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-bold"
+                            style={{ background: '#1a56db' }}>
+                            Suivre
+                          </Link>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Historique récent */}
+                {livraisons.filter(l => ['livree', 'annulee'].includes(l.statut)).length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+                      <h2 className="font-bold text-gray-900 text-sm">Récentes</h2>
+                      <button onClick={() => setTab('livraisons')} className="text-xs font-semibold text-blue-600">Voir tout →</button>
+                    </div>
+                    {livraisons.filter(l => ['livree', 'annulee'].includes(l.statut)).slice(0, 4).map(l => {
+                      const cfg = STATUT[l.statut]
+                      return (
+                        <div key={l.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                          <span className="text-lg shrink-0">{cfg.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{l.arrivee_adresse}</p>
+                            <p className="text-xs text-gray-400">{fDate(l.created_at)}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-black text-gray-800">{fPrice(l.prix_final || l.prix_calcule)}</p>
+                            <p className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Actions rapides */}
+                <div className="grid grid-cols-4 gap-2.5">
+                  {[
+                    { icon: '💰', label: 'Wallet',   href: '/client/wallet',           bg: '#22c55e' },
+                    { icon: '💬', label: 'Messages', href: '/client/messages',          bg: '#8b5cf6' },
+                    { icon: '👥', label: 'Contacts', href: '/client/contacts-favoris',  bg: '#f97316' },
+                    { icon: '⭐', label: 'Notes',    href: '/client/evaluation',        bg: '#eab308' },
+                  ].map(a => (
+                    <Link key={a.label} href={a.href}
+                      className="rounded-2xl p-3 flex flex-col items-center gap-1.5 active:scale-95 transition-all text-white"
+                      style={{ background: a.bg }}>
+                      <span className="text-xl">{a.icon}</span>
+                      <span className="text-[10px] font-bold text-center">{a.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ LIVRAISONS ══ */}
+          {tab === 'livraisons' && (
+            <div className="px-4 sm:px-0 pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-black text-gray-900">Mes livraisons</h2>
                 <Link href="/client/nouvelle-livraison"
-                  className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-xl hover:shadow-2xl transition-all active:scale-98 border border-gray-100">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: '#1a56db' }}>
-                    <MapPin size={15} className="text-white" />
-                  </div>
-                  <span className="text-gray-400 text-sm flex-1">Où voulez-vous livrer ?</span>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-orange-500">
-                    <ArrowUpRight size={14} className="text-white" />
-                  </div>
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-sm"
+                  style={{ background: '#1a56db' }}>
+                  <Plus size={13} />Créer
                 </Link>
               </div>
-            </div>
 
-            <div className="px-4 sm:px-0 space-y-4 mt-4">
-              {/* Stats rapides */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { icon: Package,    label: 'Total',    val: String(livraisons.length),                                    color: '#1a56db', bg: '#eff6ff' },
-                  { icon: Zap,        label: 'En cours', val: String(activeDeliveries.length),                              color: '#8b5cf6', bg: '#f5f3ff' },
-                  { icon: CheckCircle,label: 'Livrées',  val: String(livraisons.filter(l => l.statut === 'livree').length), color: '#22c55e', bg: '#f0fdf4' },
-                  { icon: WalletIcon, label: 'Solde',    val: fPrice(wallet?.solde || 0),                                  color: '#f97316', bg: '#fff7ed' },
-                ].map(s => (
-                  <div key={s.label} className="bg-white rounded-2xl p-3.5 border border-gray-100 flex items-center gap-3" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: s.bg }}>
-                      <s.icon size={16} style={{ color: s.color }} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-gray-400 text-[11px] font-medium">{s.label}</p>
-                      <p className="font-black text-gray-900 text-sm truncate">{s.val}</p>
-                    </div>
+              {/* Notifications non lues */}
+              {notifications.filter(n => !n.lu).length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell size={15} className="text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-800">{unreadCount} notification(s) non lue(s)</span>
                   </div>
-                ))}
-              </div>
-
-              {/* Actions rapides */}
-              <div className="grid grid-cols-4 gap-2.5">
-                {[
-                  { icon: '📦', label: 'Livraison',  href: '/client/nouvelle-livraison', bg: '#1a56db' },
-                  { icon: '💰', label: 'Wallet',     href: '/client/wallet',             bg: '#22c55e' },
-                  { icon: '💬', label: 'Messages',   href: '/client/messages',           bg: '#8b5cf6' },
-                  { icon: '👥', label: 'Contacts',   href: '/client/contacts-favoris',   bg: '#f97316' },
-                ].map(a => (
-                  <Link key={a.label} href={a.href}
-                    className="rounded-2xl p-3 flex flex-col items-center gap-1.5 hover:opacity-90 active:scale-95 transition-all text-white"
-                    style={{ background: a.bg }}>
-                    <span className="text-xl">{a.icon}</span>
-                    <span className="text-[10px] font-bold text-center leading-tight">{a.label}</span>
-                  </Link>
-                ))}
-              </div>
-
-              {/* Livraisons actives */}
-              {activeDeliveries.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-                  <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                      <h2 className="font-bold text-gray-900 text-sm">En cours ({activeDeliveries.length})</h2>
-                    </div>
-                    <button onClick={() => setTab('livraisons')} className="text-xs font-semibold text-blue-600 hover:underline">Voir tout</button>
-                  </div>
-                  {activeDeliveries.slice(0, 3).map(l => {
-                    const cfg = STATUT[l.statut] || STATUT.en_attente
-                    return (
-                      <div key={l.id} className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 ${cfg.bg}`}>
-                        <span className="text-xl mt-0.5">{cfg.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/80 ${cfg.text}`}>{cfg.label}</span>
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800 truncate">{l.depart_adresse}</p>
-                          <p className="text-xs text-gray-500 truncate">→ {l.arrivee_adresse}</p>
-                        </div>
-                        <Link href={`/client/suivi/${l.id}`}
-                          className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-bold active:scale-95"
-                          style={{ background: '#1a56db' }}>
-                          Suivre
-                        </Link>
-                      </div>
-                    )
-                  })}
+                  <button onClick={markAllRead} className="text-blue-600 text-xs font-bold hover:underline">Tout lire</button>
                 </div>
               )}
 
-              {/* Historique récent */}
-              {livraisons.filter(l => l.statut === 'livree' || l.statut === 'annulee').length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-                  <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                    <h2 className="font-bold text-gray-900 text-sm">Récentes</h2>
-                    <button onClick={() => setTab('livraisons')} className="text-xs font-semibold text-blue-600 hover:underline">Voir tout →</button>
+              {/* Filtres */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
+                    className="w-full pl-4 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400" />
+                </div>
+                <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
+                  className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-white text-gray-700">
+                  <option value="tous">Tous les statuts</option>
+                  {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
+                </select>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                {filteredLivraisons.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Package size={36} className="text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm font-medium">Aucune livraison</p>
+                    <Link href="/client/nouvelle-livraison"
+                      className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl text-white font-bold text-sm"
+                      style={{ background: '#1a56db' }}>
+                      <Plus size={13} />Créer ma première livraison
+                    </Link>
                   </div>
-                  {livraisons.filter(l => ['livree','annulee'].includes(l.statut)).slice(0, 4).map(l => {
-                    const cfg = STATUT[l.statut] || STATUT.en_attente
-                    return (
-                      <div key={l.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                        <span className="text-lg shrink-0">{cfg.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{l.arrivee_adresse}</p>
-                          <p className="text-xs text-gray-400">{fDate(l.created_at)}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-gray-800">{fPrice(l.prix_final || l.prix_calcule)}</p>
-                          <p className={`text-[11px] font-semibold ${cfg.text}`}>{cfg.label}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Menu paramètres */}
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-                {[
-                  { href: '/client/profil',          emoji: '👤', label: 'Mon profil',         sub: user?.telephone || '' },
-                  { href: '/client/favoris',          emoji: '📍', label: 'Adresses favorites',  sub: 'Maison, Bureau...' },
-                  { href: '/client/contacts-favoris', emoji: '👥', label: 'Contacts favoris',    sub: 'Destinataires fréquents' },
-                  { href: '/client/wallet',           emoji: '💳', label: 'Mon Wallet',          sub: fPrice(wallet?.solde || 0) },
-                ].map(item => (
-                  <Link key={item.href} href={item.href}
-                    className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                    <span className="text-xl w-8 text-center">{item.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm">{item.label}</p>
-                      {item.sub && <p className="text-gray-400 text-xs truncate">{item.sub}</p>}
-                    </div>
-                    <ChevronRight size={15} className="text-gray-300 shrink-0" />
-                  </Link>
-                ))}
-                <button onClick={async () => { await supabase.auth.signOut(); router.replace('/login') }}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-red-50 w-full text-left active:bg-red-100 transition-colors">
-                  <span className="text-xl w-8 text-center">🚪</span>
-                  <span className="flex-1 font-semibold text-red-500 text-sm">Déconnexion</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════ LIVRAISONS ══════════════════ */}
-        {tab === 'livraisons' && (
-          <div className="px-4 sm:px-0 pt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-gray-900">Mes livraisons</h2>
-              <Link href="/client/nouvelle-livraison"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white font-bold text-sm active:scale-95 transition-all"
-                style={{ background: '#1a56db' }}>
-                <Plus size={14} />Créer
-              </Link>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <div className="relative flex-1">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input placeholder="Rechercher adresse, destinataire..." value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400" />
-              </div>
-              <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
-                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white text-gray-700">
-                <option value="tous">Tous les statuts</option>
-                {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
-              </select>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-              {filteredLivraisons.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Package size={40} className="text-gray-200 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm font-medium">Aucune livraison trouvée</p>
-                  <Link href="/client/nouvelle-livraison"
-                    className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-xl text-white font-bold text-sm"
-                    style={{ background: '#1a56db' }}>
-                    <Plus size={14} />Créer ma première livraison
-                  </Link>
-                </div>
-              ) : (
-                filteredLivraisons.map(l => {
+                ) : filteredLivraisons.map(l => {
                   const cfg = STATUT[l.statut] || STATUT.en_attente
                   return (
                     <div key={l.id} className="px-4 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                       <div className="flex items-start gap-3">
-                        <span className="text-xl mt-0.5 shrink-0">{cfg.emoji}</span>
+                        <span className="text-xl shrink-0 mt-0.5">{cfg.emoji}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">{l.depart_adresse}</p>
                               <p className="text-xs text-gray-400 truncate">→ {l.arrivee_adresse}</p>
                             </div>
-                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                              style={{ background: cfg.bg, color: cfg.text }}>{cfg.label}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                             <span className="text-gray-400">{fDate(l.created_at)}</span>
@@ -557,108 +816,81 @@ export default function ClientDashboard() {
                             <span className="text-gray-500">{l.destinataire_nom}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-2">
-                            {l.statut === 'en_attente' && (
-                              <Link href={`/client/propositions/${l.id}`}
-                                className="text-xs px-3 py-1 rounded-lg font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100">
-                                Voir propositions →
-                              </Link>
-                            )}
-                            {!['livree', 'annulee', 'en_attente'].includes(l.statut) && (
+                            {!['livree', 'annulee'].includes(l.statut) && (
                               <Link href={`/client/suivi/${l.id}`}
                                 className="text-xs px-3 py-1 rounded-lg font-semibold text-white"
-                                style={{ background: '#1a56db' }}>
-                                🗺️ Suivre
-                              </Link>
+                                style={{ background: '#1a56db' }}>🗺️ Suivre</Link>
                             )}
                             {l.statut === 'livree' && (
                               <Link href={`/client/evaluation/${l.id}`}
-                                className="text-xs px-3 py-1 rounded-lg font-semibold text-yellow-700 bg-yellow-50 hover:bg-yellow-100">
-                                ⭐ Évaluer
-                              </Link>
+                                className="text-xs px-3 py-1 rounded-lg font-semibold text-yellow-700 bg-yellow-50">⭐ Évaluer</Link>
+                            )}
+                            {l.statut === 'en_attente' && (
+                              <Link href={`/client/propositions/${l.id}`}
+                                className="text-xs px-3 py-1 rounded-lg font-semibold text-orange-600 bg-orange-50">Propositions →</Link>
                             )}
                           </div>
                         </div>
                       </div>
                     </div>
                   )
-                })
-              )}
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ══════════════════ WALLET ══════════════════ */}
-        {tab === 'wallet' && (
-          <div className="px-4 sm:px-0 pt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setTab('accueil')}
-                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
-                  <ArrowUp size={14} className="text-gray-600 rotate-[-90deg]" />
-                </button>
+          {/* ══ WALLET ══ */}
+          {tab === 'wallet' && (
+            <div className="px-4 sm:px-0 pt-4 space-y-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-gray-900">Mon Wallet</h2>
+                <Link href="/client/wallet" className="text-blue-600 text-sm font-semibold">Gérer →</Link>
               </div>
-              <Link href="/client/wallet" className="text-blue-600 text-sm font-semibold hover:underline">Gérer →</Link>
-            </div>
 
-            {/* Carte solde */}
-            <div className="rounded-3xl p-6 text-white relative overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%)' }}>
-              <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10"
-                style={{ background: 'white', transform: 'translate(30%, -30%)' }} />
-              <p className="text-white/70 text-sm mb-1">Solde disponible</p>
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-4xl font-black">{(wallet?.solde || 0).toLocaleString('fr-FR')}</span>
-                <span className="text-lg font-semibold opacity-80">FCFA</span>
-              </div>
-              {wallet && (
+              <div className="rounded-3xl p-6 text-white relative overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%)' }}>
+                <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10" style={{ background: 'white', transform: 'translate(30%,-30%)' }} />
+                <p className="text-white/60 text-sm mb-1">Solde disponible</p>
+                <div className="flex items-baseline gap-2 mb-5">
+                  <span className="text-4xl font-black">{(wallet?.solde || 0).toLocaleString('fr-FR')}</span>
+                  <span className="text-lg opacity-70">FCFA</span>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/15 rounded-xl p-3">
-                    <p className="text-white/60 text-xs">Total rechargé</p>
-                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet.total_gains || 0)}</p>
+                  <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                    <p className="text-white/50 text-xs">Total rechargé</p>
+                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet?.total_gains || 0)}</p>
                   </div>
-                  <div className="bg-white/15 rounded-xl p-3">
-                    <p className="text-white/60 text-xs">Total dépensé</p>
-                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet.total_retraits || 0)}</p>
+                  <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                    <p className="text-white/50 text-xs">Total dépensé</p>
+                    <p className="font-bold text-sm mt-0.5">{fPrice(wallet?.total_retraits || 0)}</p>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Actions wallet */}
-            <div className="grid grid-cols-2 gap-3">
-              <Link href="/client/wallet"
-                className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 text-white"
-                style={{ background: '#22c55e' }}>
-                <ArrowDown size={16} />Recharger
-              </Link>
-              <Link href="/client/wallet"
-                className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm border-2 border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition-all">
-                <TrendingUp size={16} />Historique
-              </Link>
-            </div>
-
-            {/* Transactions */}
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-              <div className="px-4 py-3 border-b border-gray-50">
-                <h3 className="font-bold text-gray-900 text-sm">Transactions récentes</h3>
               </div>
-              {transactions.length === 0 ? (
-                <div className="p-8 text-center">
-                  <WalletIcon size={28} className="text-gray-200 mx-auto mb-2" />
-                  <p className="text-gray-400 text-sm">Aucune transaction</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Link href="/client/wallet" className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all" style={{ background: '#22c55e' }}>
+                  <ArrowDown size={15} />Recharger
+                </Link>
+                <Link href="/client/wallet" className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm border-2 border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all">
+                  <TrendingUp size={15} />Historique
+                </Link>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-50">
+                  <h3 className="font-bold text-gray-900 text-sm">Transactions récentes</h3>
                 </div>
-              ) : (
-                transactions.slice(0, 15).map(tx => {
+                {transactions.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <WalletIcon size={28} className="text-gray-200 mx-auto mb-2" />
+                    <p className="text-gray-400 text-sm">Aucune transaction</p>
+                  </div>
+                ) : transactions.slice(0, 15).map(tx => {
                   const isCredit = ['gain', 'bonus', 'remboursement', 'recharge'].includes(tx.type)
-                  const icons: Record<string, string> = {
-                    gain: '💰', recharge: '📲', paiement_course: '📦', retrait: '🏦',
-                    bonus: '🎁', remboursement: '↩️', commission: '📊',
-                  }
+                  const icons: Record<string, string> = { gain: '💰', recharge: '📲', paiement_course: '📦', retrait: '🏦', bonus: '🎁', remboursement: '↩️', commission: '📊' }
                   return (
                     <div key={tx.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
-                        style={{ background: isCredit ? '#f0fdf4' : '#fef2f2' }}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0" style={{ background: isCredit ? '#f0fdf4' : '#fef2f2' }}>
                         {icons[tx.type] || '💳'}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -670,89 +902,52 @@ export default function ClientDashboard() {
                       </p>
                     </div>
                   )
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════ NOTIFICATIONS ══════════════════ */}
-        {tab === 'notifications' && (
-          <div className="px-4 sm:px-0 pt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setTab('accueil')}
-                  className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
-                  <ArrowUp size={14} className="text-gray-600 rotate-[-90deg]" />
-                </button>
-                <h2 className="text-xl font-black text-gray-900">Notifications</h2>
+                })}
               </div>
-              {unreadCount > 0 && (
-                <button onClick={markAllRead}
-                  className="text-blue-600 text-xs font-semibold hover:underline">
-                  Tout marquer lu
-                </button>
-              )}
             </div>
+          )}
+        </main>
 
-            {notifications.length === 0 ? (
-              <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-                <Bell size={36} className="text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm font-medium">Aucune notification</p>
-              </div>
-            ) : (
-              notifications.map(n => (
-                <div key={n.id}
-                  onClick={async () => {
-                    if (!n.lu) {
-                      await supabase.from('notifications').update({ lu: true }).eq('id', n.id)
-                      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, lu: true } : x))
-                    }
-                  }}
-                  className={`rounded-2xl p-4 border cursor-pointer transition-all active:scale-[0.98] ${
-                    !n.lu
-                      ? 'border-blue-200 bg-blue-50'
-                      : 'border-gray-100 bg-white'
-                  }`}
-                  style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl shrink-0">🔔</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-sm">{n.titre}</p>
-                      <p className="text-gray-600 text-xs mt-0.5 leading-relaxed">{n.message}</p>
-                      <p className="text-gray-400 text-[11px] mt-1.5">{fDate(n.created_at)}</p>
-                    </div>
-                    {!n.lu && <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style={{ background: '#1a56db' }} />}
-                  </div>
-                </div>
-              ))
-            )}
+        {/* ── BOTTOM NAV MOBILE ── */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white border-t border-gray-100"
+          style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
+          <div className="flex max-w-2xl mx-auto">
+            {([
+              ['accueil', '🏠', 'Accueil', undefined],
+              ['livraisons', '📦', 'Livraisons', undefined],
+              ['', 'plus', '+', undefined], // bouton central
+              ['wallet', '💰', 'Wallet', undefined],
+              ['parametres', '⚙️', 'Paramètres', undefined],
+            ] as const).map(([t, icon, label]) => {
+              if (t === '' && icon === 'plus') {
+                return (
+                  <Link key="plus" href="/client/nouvelle-livraison"
+                    className="flex-1 flex flex-col items-center py-1.5 relative">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl -mt-5 shadow-lg"
+                      style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>+</div>
+                    <span className="text-[10px] font-semibold text-gray-400 mt-0.5">Livrer</span>
+                  </Link>
+                )
+              }
+              const isActive = tab === t
+              return (
+                <button key={t} onClick={() => {
+                  if (t === 'parametres') setShowParams(true)
+                  else setTab(t as Tab)
+                }}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{icon}</span>
+                  <span className="text-[10px] font-semibold">{label}</span>
+                  {t === 'livraisons' && unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  )}
+                  {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
+                </button>
+              )
+            })}
           </div>
-        )}
-      </main>
-
-      {/* ── BOTTOM NAV MOBILE ── */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
-        <div className="flex">
-          {([
-            ['accueil', '🏠', 'Accueil'],
-            ['livraisons', '📦', 'Livraisons'],
-            ['wallet', '💰', 'Wallet'],
-            ['notifications', '🔔', 'Notifs'],
-          ] as const).map(([t, icon, label]) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === t ? 'text-blue-600' : 'text-gray-400'}`}>
-              <span className="text-lg leading-none">{icon}</span>
-              <span className="text-[10px] font-semibold">{label}</span>
-              {t === 'notifications' && unreadCount > 0 && (
-                <span className="absolute top-1.5 right-4 w-4 h-4 rounded-full text-white text-[9px] font-bold flex items-center justify-center"
-                  style={{ background: '#ef4444' }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-              {tab === t && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: '#1a56db' }} />}
-            </button>
-          ))}
-        </div>
-      </nav>
-    </div>
+        </nav>
+      </div>
+    </>
   )
 }
