@@ -38,37 +38,54 @@ export type Livraison = {
   client_id:         string
   coursier_id:       string | null
   statut:            'en_attente' | 'acceptee' | 'en_route_depart' | 'colis_recupere' | 'en_route_arrivee' | 'livree' | 'annulee'
+  type:              'immediate' | 'urgente' | 'programmee'
+  pour_tiers:        boolean | null
   depart_adresse:    string
   depart_lat:        number 
   depart_lng:        number
   arrivee_adresse:   string
   arrivee_lat:       number
   arrivee_lng:       number
-  prix_calcule:      number
-  prix_final:        number | null
-  statut_paiement:   'en_attente' | 'paye' | 'rembourse'
   destinataire_nom:  string
   destinataire_tel:  string
+  destinataire_whatsapp: string | null
+  destinataire_email:    string | null
   instructions:      string | null
-  // Champs nécessaires pour le dashboard coursier
-  livree_at:         string | null 
+  photos_colis:      string[] | null
+  prix_calcule:      number
+  prix_final:        number | null
+  commission_nyme:   number | null
   distance_km:       number | null
   duree_estimee:     number | null
-  type:              'immediate' | 'urgente' | 'programmee' | string | null
+  statut_paiement:   'en_attente' | 'paye' | 'rembourse'
+  mode_paiement:     'cash' | 'mobile_money' | 'carte' | null
+  
+  // La colonne qui manquait
+  programme_le:      string | null 
+  
   created_at:        string
-  updated_at:        string
-  // Jointure client
-  client?: {
+  acceptee_at:       string | null
+  recupere_at:       string | null
+  livree_at:         string | null 
+  annulee_at:        string | null
+  annulee_par:       'client' | 'coursier' | 'admin' | null
+  payment_api_reference: string | null
+  payment_api_status:    'pending' | 'success' | 'failed' | null
+  is_paid_to_courier:    boolean
+
+  // Jointures pour les requêtes .select('*, coursier(...)')
+  coursier?: {
     id: string
     nom: string | null
     telephone: string | null
     avatar_url: string | null
+    note_moyenne: number
   }
 }
 
 // ── 3. TABLE : coursiers ────────────────────────────────────────────
 export type Coursier = {
-  id: string // Relie à utilisateurs.id
+  id: string 
   statut: 'disponible' | 'en_course' | 'hors_ligne'
   statut_verification: 'en_attente' | 'verifie' | 'rejete'
   vehicule_type: string
@@ -100,29 +117,7 @@ export type PartenaireRow = {
   updated_at:       string
 }
 
-// ── 5. TABLE : livraisons_partenaire ───────────────────────────────
-export type LivraisonPartenaireRow = {
-  id:               string
-  partenaire_id:    string
-  adresse_depart:   string
-  adresse_arrivee:  string
-  lat_depart:       number | null
-  lng_depart:       number | null
-  lat_arrivee:      number | null
-  lng_arrivee:      number | null
-  destinataire_nom: string | null
-  destinataire_tel: string | null
-  instructions:     string | null
-  statut:           'en_attente' | 'en_cours' | 'livre' | 'annule'
-  prix:             number | null
-  commission:       number | null
-  coursier_id:      string | null
-  livraison_app_id: string | null
-  created_at:       string
-  updated_at:       string
-}
-
-// ── 6. TABLES : Wallets & Notifications ─────────────────────────────
+// ── 5. TABLE : Wallets & Transactions ───────────────────────────────
 export type Wallet = {
   id: string
   user_id: string
@@ -136,12 +131,14 @@ export type TransactionWallet = {
   id: string
   user_id: string
   montant: number
-  type: 'depot' | 'retrait' | 'gain_course' | 'commission'
+  // Ajout de 'gain' et 'bonus' pour correspondre à ton dashboard
+  type: 'depot' | 'retrait' | 'gain_course' | 'commission' | 'gain' | 'bonus' | string
   statut: 'succes' | 'en_attente' | 'echec'
   note: string | null
   created_at: string
 }
 
+// ── 6. TABLE : Notifications ────────────────────────────────────────
 export type Notification = {
   id: string
   user_id: string
@@ -171,7 +168,7 @@ export async function getUtilisateur(userId: string): Promise<Utilisateur | null
     .eq('id', userId)
     .single()
   if (error) return null
-  return data
+  return data as Utilisateur
 }
 
 export async function getPartenaire(userId: string): Promise<PartenaireRow | null> {
@@ -180,19 +177,6 @@ export async function getPartenaire(userId: string): Promise<PartenaireRow | nul
     .select('*')
     .eq('user_id', userId)
     .single()
-  if (error) { console.error('[supabase] getPartenaire:', error.message); return null }
-  return data
-}
-
-export async function getLivraisonsPartenaire(
-  partenaireId: string, limit = 100
-): Promise<LivraisonPartenaireRow[]> {
-  const { data, error } = await supabase
-    .from('livraisons_partenaire')
-    .select('*')
-    .eq('partenaire_id', partenaireId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (error) { console.error('[supabase] getLivraisons:', error.message); return [] }
-  return data || []
+  if (error) return null
+  return data as PartenaireRow
 }
