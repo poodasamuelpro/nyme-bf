@@ -145,7 +145,7 @@ function CoursierLoginContent() {
   }
 
   const inp = (field: keyof typeof form) =>
-    `w-full bg-white/8 border ${errors[field] ? 'border-red-400' : 'border-white/15'} rounded-2xl px-4 py-3.5 text-white placeholder-white/40 text-sm outline-none focus:border-nyme-orange/70 focus:bg-white/12 transition-all`
+    `w-full bg-white/10 border ${errors[field] ? 'border-red-400' : 'border-white/20'} rounded-2xl px-4 py-3.5 text-white placeholder-white/50 text-sm outline-none focus:border-nyme-orange/70 focus:bg-white/15 transition-all`
 
   return (
     <div className="min-h-screen bg-nyme-dark overflow-hidden flex flex-col">
