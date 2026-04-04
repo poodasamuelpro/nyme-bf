@@ -1,4 +1,4 @@
-// src/app/coursier/login/page.tsx — Page login/register COURSIER uniquement
+// src/app/coursier/login/page.tsx — Page login/register COURSIER uniquement 
 // Rôle coursier garanti via metadata Supabase Auth → trigger handle_new_user
 'use client'
 import { useState, useEffect, Suspense } from 'react'
