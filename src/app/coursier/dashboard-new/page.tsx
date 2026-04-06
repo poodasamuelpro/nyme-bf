@@ -5,6 +5,8 @@
 // ✅ Types de course : Standard / Urgente / Planifiée
 // ✅ Vérification rôle coursier stricte
 // ✅ Responsive mobile = app pure (pas de header/footer site)
+// ✅ GPS envoi position vers Supabase toutes les 5s quand disponible
+// ✅ Contre-proposition de prix depuis l'UI
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -54,7 +56,7 @@ const TYPE_BADGE: Record<string, { label: string; emoji: string; color: string; 
   standard:   { label: 'Standard',  emoji: '⚡', color: '#1a56db', bg: '#eff6ff' },
   urgente:    { label: 'Urgente',   emoji: '🚨', color: '#dc2626', bg: '#fef2f2' },
   programmee: { label: 'Planifiée', emoji: '📅', color: '#7c3aed', bg: '#f5f3ff' },
-  immediate:  { label: 'Standard',  emoji: '⚡', color: '#1a56db', bg: '#eff6ff' }, // compat legacy
+  immediate:  { label: 'Standard',  emoji: '⚡', color: '#1a56db', bg: '#eff6ff' },
 }
 
 const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n)) + ' FCFA'
@@ -62,8 +64,6 @@ const fDate  = (d: string) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit',
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPOSANT CARTE UNIVERSELLE COURSIER
-// Essai dans l'ordre : Google Maps → Leaflet/OSM → Mapbox
-// Aucun @types/google.maps requis — types gérés ci-dessus
 // ─────────────────────────────────────────────────────────────────────────────
 function CoursierMap({
   userLat, userLng, courses, satellite = false
@@ -93,7 +93,6 @@ function CoursierMap({
     { featureType: 'poi',      stylers: [{ visibility: 'off' }] },
   ]
 
-  // ── GOOGLE MAPS ────────────────────────────────────────────────────────────
   const initGoogle = useCallback(() => {
     const win = window as WinWithGoogle
     if (!mapRef.current || !win.google) return
@@ -110,7 +109,6 @@ function CoursierMap({
       })
       gMapRef.current = map
 
-      // Marker coursier (position actuelle)
       if (userLat && userLng) {
         new G.Marker({
           position: { lat: userLat, lng: userLng }, map,
@@ -121,7 +119,6 @@ function CoursierMap({
         })
       }
 
-      // Markers missions disponibles (points verts)
       courses.slice(0, 10).forEach(c => {
         if (!c.depart_lat || !c.depart_lng) return
         const m = new G.Marker({
@@ -141,7 +138,6 @@ function CoursierMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, satellite, userLat, userLng, courses])
 
-  // ── LEAFLET / OSM (fallback 1) ─────────────────────────────────────────────
   const initLeaflet = useCallback(() => {
     if (!mapRef.current || typeof window === 'undefined') return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -149,14 +145,10 @@ function CoursierMap({
 
     import('leaflet').then(L => {
       if (!mapRef.current) return
-
       const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false }).setView([lat, lng], 14)
       leafMapRef.current = map
-
-      // Thème sombre via Carto DarkMatter
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map)
 
-      // Position coursier
       if (userLat && userLng) {
         const icon = L.divIcon({
           html: `<div style="background:#f97316;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 10px rgba(249,115,22,0.5)"></div>`,
@@ -165,7 +157,6 @@ function CoursierMap({
         L.marker([userLat, userLng], { icon }).addTo(map).bindPopup('🛵 Votre position')
       }
 
-      // Missions
       courses.slice(0, 10).forEach(c => {
         if (!c.depart_lat || !c.depart_lng) return
         const icon = L.divIcon({
@@ -180,13 +171,11 @@ function CoursierMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, userLat, userLng, courses])
 
-  // ── MAPBOX (fallback 2) ────────────────────────────────────────────────────
   const initMapbox = useCallback(() => {
     if (!mapRef.current) return
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
     if (!token) { setEngine('error'); return }
 
-    // Charger Mapbox GL JS dynamiquement
     const link = document.createElement('link')
     link.rel  = 'stylesheet'
     link.href = 'https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css'
@@ -205,7 +194,6 @@ function CoursierMap({
           center: [lng, lat],
           zoom: 13,
         })
-
         if (userLat && userLng) {
           new mapboxgl.Marker({ color: '#f97316' }).setLngLat([userLng, userLat]).addTo(map)
         }
@@ -213,7 +201,6 @@ function CoursierMap({
           if (!c.depart_lat || !c.depart_lng) return
           new mapboxgl.Marker({ color: '#22c55e' }).setLngLat([c.depart_lng, c.depart_lat]).addTo(map)
         })
-
         leafMapRef.current = map
         setEngine('mapbox'); setReady(true)
       } catch { setEngine('error') }
@@ -223,7 +210,6 @@ function CoursierMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, satellite, userLat, userLng, courses])
 
-  // ── CHARGEMENT ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined' || !mapRef.current) return
     const win = window as WinWithGoogle
@@ -261,7 +247,6 @@ function CoursierMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Toggle satellite (Google seulement)
   useEffect(() => {
     if (engine !== 'google' || !gMapRef.current) return
     gMapRef.current.setMapTypeId(satellite ? 'hybrid' : 'roadmap')
@@ -281,7 +266,6 @@ function CoursierMap({
     <>
       {engine === 'leaflet' && <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />}
       <div ref={mapRef} className="w-full h-full" style={{ opacity: ready ? 1 : 0.5, transition: 'opacity 0.3s' }} />
-      {/* Badge moteur en dev uniquement */}
       {process.env.NODE_ENV === 'development' && engine && (
         <div className="absolute bottom-14 left-3 z-20 text-[10px] px-2 py-0.5 rounded-full font-bold"
           style={{ background: engine === 'google' ? '#1a56db' : engine === 'mapbox' ? '#6366f1' : '#334155', color: 'white' }}>
@@ -304,9 +288,9 @@ function ParametresCoursier({
   const [section, setSection] = useState<'profil' | 'documents' | 'securite'>('profil')
   const [form, setForm] = useState({ nom: user.nom, telephone: user.telephone || '', whatsapp: user.whatsapp || '' })
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
-  const [showPw, setShowPw]         = useState(false)
-  const [saving, setSaving]         = useState(false)
-  const [uploading, setUploading]   = useState(false)
+  const [showPw, setShowPw]       = useState(false)
+  const [saving, setSaving]       = useState(false)
+  const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const saveProfile = async () => {
@@ -366,10 +350,12 @@ function ParametresCoursier({
 
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
           <h2 className="font-black text-gray-900 text-lg">Paramètres Coursier</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X size={14} className="text-gray-600" /></button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+            <X size={14} className="text-gray-600" />
+          </button>
         </div>
 
-        {/* Photo */}
+        {/* Photo profil */}
         <div className="flex flex-col items-center pt-5 pb-3 border-b border-gray-50">
           <div className="relative">
             {user.avatar_url
@@ -384,7 +370,9 @@ function ParametresCoursier({
           </div>
           <p className="font-bold text-gray-900 mt-2">{user.nom}</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${coursier?.statut_verification === 'verifie' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+              coursier?.statut_verification === 'verifie' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+            }`}>
               {coursier?.statut_verification === 'verifie' ? '✅ Vérifié' : '⏳ En attente'}
             </span>
             {wallet && <span className="text-xs text-gray-500 font-semibold">{fPrice(wallet.solde)}</span>}
@@ -464,7 +452,11 @@ function ParametresCoursier({
               <div className="bg-amber-50 rounded-2xl p-3.5">
                 <p className="text-amber-800 text-xs font-semibold flex items-center gap-2"><Shield size={13} />Modification du mot de passe</p>
               </div>
-              {[{ key: 'current' as const, label: 'Mot de passe actuel' }, { key: 'next' as const, label: 'Nouveau mot de passe' }, { key: 'confirm' as const, label: 'Confirmer le nouveau' }].map(f => (
+              {[
+                { key: 'current' as const, label: 'Mot de passe actuel' },
+                { key: 'next'    as const, label: 'Nouveau mot de passe' },
+                { key: 'confirm' as const, label: 'Confirmer le nouveau' },
+              ].map(f => (
                 <div key={f.key}>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5">{f.label}</label>
                   <div className="relative">
@@ -515,6 +507,87 @@ export default function CoursierDashboard() {
   const [showParams,         setShowParams]         = useState(false)
   const [showAllMissions,    setShowAllMissions]    = useState(false)
 
+  // GPS : envoi position vers Supabase
+  const gpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const watchIdRef     = useRef<number | null>(null)
+  const userIdRef      = useRef<string | null>(null)
+
+  // Contre-proposition
+  const [propositionInputs, setPropositionInputs] = useState<Record<string, string>>({})
+  const [proposantId,       setProposantId]       = useState<string | null>(null)
+  const [propositionLoading, setPropositionLoading] = useState<string | null>(null)
+
+  // ── Envoi GPS vers Supabase ─────────────────────────────────────────────
+  const sendGpsToSupabase = useCallback(async (
+    uid: string, lat: number, lng: number, speed: number | null
+  ) => {
+    try {
+      await supabase.from('localisation_coursier').insert({
+        coursier_id: uid,
+        livraison_id: null,
+        latitude: lat,
+        longitude: lng,
+        vitesse: speed ? Math.round(speed * 3.6 * 100) / 100 : 0, // m/s → km/h
+      })
+      await supabase.from('coursiers').update({
+        lat_actuelle: lat,
+        lng_actuelle: lng,
+        derniere_activite: new Date().toISOString(),
+      }).eq('id', uid)
+    } catch { /* silencieux — l'app ne doit pas crasher si GPS échoue */ }
+  }, [])
+
+  // ── Démarrer le tracking GPS ──────────────────────────────────────────
+  const startGpsTracking = useCallback((uid: string) => {
+    if (!navigator.geolocation) return
+
+    // Position initiale immédiate
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setUserLat(pos.coords.latitude)
+        setUserLng(pos.coords.longitude)
+        sendGpsToSupabase(uid, pos.coords.latitude, pos.coords.longitude, pos.coords.speed)
+      },
+      () => {}
+    )
+
+    // Watch continu
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+    }
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude: lat, longitude: lng, speed } = pos.coords
+        setUserLat(lat)
+        setUserLng(lng)
+        sendGpsToSupabase(uid, lat, lng, speed)
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+    )
+
+    // Envoi forcé toutes les 5s (même sans mouvement)
+    if (gpsIntervalRef.current) clearInterval(gpsIntervalRef.current)
+    gpsIntervalRef.current = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        pos => sendGpsToSupabase(uid, pos.coords.latitude, pos.coords.longitude, pos.coords.speed),
+        () => {}
+      )
+    }, 5000)
+  }, [sendGpsToSupabase])
+
+  // ── Arrêter le tracking GPS ───────────────────────────────────────────
+  const stopGpsTracking = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
+    if (gpsIntervalRef.current) {
+      clearInterval(gpsIntervalRef.current)
+      gpsIntervalRef.current = null
+    }
+  }, [])
+
   const loadCoursesDisponibles = useCallback(async () => {
     const { data } = await supabase.from('livraisons')
       .select('*, client:client_id(id, nom, telephone, avatar_url)')
@@ -550,9 +623,16 @@ export default function CoursierDashboard() {
           await supabase.auth.signOut(); router.push('/coursier/login'); return
         }
         setUser(u as Utilisateur)
+        userIdRef.current = session.user.id
 
         const { data: c } = await supabase.from('coursiers').select('*').eq('id', session.user.id).single()
-        if (c) { setCoursier(c as Coursier); setDisponible(c.statut === 'disponible') }
+        if (c) {
+          setCoursier(c as Coursier)
+          const isDisponible = c.statut === 'disponible'
+          setDisponible(isDisponible)
+          // Démarrer GPS si déjà disponible
+          if (isDisponible) startGpsTracking(session.user.id)
+        }
 
         const { data: notifs } = await supabase.from('notifications').select('*')
           .eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(30)
@@ -564,6 +644,7 @@ export default function CoursierDashboard() {
           loadWallet(session.user.id),
         ])
 
+        // Position initiale (sans tracking)
         navigator.geolocation?.getCurrentPosition(
           pos => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude) },
           () => {}
@@ -581,12 +662,20 @@ export default function CoursierDashboard() {
           .subscribe()
 
         setLoading(false)
-        return () => { supabase.removeChannel(channel) }
+        return () => {
+          supabase.removeChannel(channel)
+          stopGpsTracking()
+        }
       } catch { setLoading(false) }
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Cleanup GPS au démontage
+  useEffect(() => {
+    return () => { stopGpsTracking() }
+  }, [stopGpsTracking])
 
   const toggleDisponible = async () => {
     if (!user || toggling) return
@@ -602,17 +691,25 @@ export default function CoursierDashboard() {
             }).eq('id', user.id)
             setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude)
             setDisponible(true)
-            toast.success('✅ En ligne — missions visibles')
+            // Démarrer le tracking GPS
+            startGpsTracking(user.id)
+            toast.success('✅ En ligne — GPS actif')
             setToggling(false)
           },
           async () => {
             await supabase.from('coursiers').update({ statut: 'disponible' }).eq('id', user.id)
-            setDisponible(true); toast('En ligne sans GPS', { icon: '⚠️' }); setToggling(false)
+            setDisponible(true)
+            startGpsTracking(user.id)
+            toast('En ligne sans GPS précis', { icon: '⚠️' })
+            setToggling(false)
           }
         )
       } else {
+        stopGpsTracking()
         await supabase.from('coursiers').update({ statut: 'hors_ligne' }).eq('id', user.id)
-        setDisponible(false); toast('Hors ligne', { icon: '🔴' }); setToggling(false)
+        setDisponible(false)
+        toast('Hors ligne — GPS arrêté', { icon: '🔴' })
+        setToggling(false)
       }
     } catch { setToggling(false) }
   }
@@ -630,6 +727,36 @@ export default function CoursierDashboard() {
       await Promise.all([loadCoursesDisponibles(), loadCoursesEnCours(user.id)])
       setTab('en_cours')
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Erreur') }
+  }
+
+  // Contre-proposition de prix
+  const handleProposerPrix = async (livraisonId: string) => {
+    if (!user) return
+    const montantStr = propositionInputs[livraisonId]
+    const montant = parseFloat(montantStr)
+    if (!montant || montant < 500) { toast.error('Montant minimum 500 XOF'); return }
+
+    setPropositionLoading(livraisonId)
+    try {
+      const res = await fetch('/api/coursier/livraisons/accepter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          livraison_id: livraisonId,
+          coursier_id: user.id,
+          action: 'proposer_prix',
+          montant_propose: montant,
+        }),
+      })
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || 'Erreur') }
+      toast.success('✅ Proposition envoyée ! Le client peut accepter.')
+      setProposantId(null)
+      setPropositionInputs(prev => { const n = { ...prev }; delete n[livraisonId]; return n })
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erreur envoi proposition')
+    } finally {
+      setPropositionLoading(null)
+    }
   }
 
   const updateStatut = async (livraisonId: string, newStatut: string) => {
@@ -667,7 +794,11 @@ export default function CoursierDashboard() {
   return (
     <>
       {showParams && user && (
-        <ParametresCoursier user={user} coursier={coursier} wallet={wallet} onClose={() => setShowParams(false)} onUpdate={u => setUser(u)} />
+        <ParametresCoursier
+          user={user} coursier={coursier} wallet={wallet}
+          onClose={() => setShowParams(false)}
+          onUpdate={u => setUser(u)}
+        />
       )}
 
       <div className="min-h-screen flex flex-col" style={{ background: '#f8fafc' }}>
@@ -697,7 +828,7 @@ export default function CoursierDashboard() {
               </button>
 
               {/* Notifs */}
-              <button className="relative w-9 h-9 rounded-xl hover:bg-white/10 flex items-center justify-center">
+              <button className="relative w-9 h-9 rounded-xl hover:bg-white/10 flex items-center justify-center transition-colors">
                 <Bell size={17} className="text-white/70" />
                 {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount}</span>}
               </button>
@@ -734,7 +865,10 @@ export default function CoursierDashboard() {
         {/* Bannière vérification */}
         {!isVerifie && (
           <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2"><AlertTriangle size={14} /><span className="font-medium">Dossier en vérification — missions bloquées</span></div>
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} />
+              <span className="font-medium">Dossier en vérification — missions bloquées</span>
+            </div>
             <Link href="/coursier/verification" className="text-xs underline font-bold">Compléter →</Link>
           </div>
         )}
@@ -748,11 +882,10 @@ export default function CoursierDashboard() {
               <div className={`relative transition-all duration-300 overflow-hidden ${mapExpanded ? 'h-[55vh]' : 'h-48 sm:h-60'}`} style={{ background: '#1e293b' }}>
                 <CoursierMap userLat={userLat} userLng={userLng} courses={coursesDisponibles} satellite={satellite} />
 
-                {/* Overlay top */}
                 <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2">
                   <div className="rounded-xl px-3 py-2 flex items-center gap-2 flex-1" style={{ background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)' }}>
                     <div className={`w-2 h-2 rounded-full ${disponible ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-                    <span className="text-xs font-semibold text-white truncate">{disponible ? 'Disponible' : 'Hors ligne'}</span>
+                    <span className="text-xs font-semibold text-white truncate">{disponible ? 'Disponible — GPS actif' : 'Hors ligne'}</span>
                     {coursier && (
                       <div className="flex items-center gap-1 ml-1">
                         <Star size={11} className="text-yellow-400 fill-yellow-400" />
@@ -770,13 +903,12 @@ export default function CoursierDashboard() {
                   </button>
                 </div>
 
-                {/* Stats bottom */}
                 <div className="absolute bottom-3 left-3 right-3 z-10">
                   <div className="rounded-2xl px-4 py-3 grid grid-cols-4 gap-2" style={{ background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(8px)' }}>
                     {[
-                      { label: 'Dispo',     val: String(coursesDisponibles.length),              color: '#22c55e' },
-                      { label: 'En cours',  val: String(coursesEnCours.length),                  color: '#f97316' },
-                      { label: 'Total',     val: String(coursier?.total_courses || 0),           color: '#8b5cf6' },
+                      { label: 'Dispo',     val: String(coursesDisponibles.length),    color: '#22c55e' },
+                      { label: 'En cours',  val: String(coursesEnCours.length),        color: '#f97316' },
+                      { label: 'Total',     val: String(coursier?.total_courses || 0), color: '#8b5cf6' },
                       { label: "Auj.",      val: gainsDuJour > 0 ? `${Math.round(gainsDuJour / 1000)}k` : '0', color: '#eab308' },
                     ].map(s => (
                       <div key={s.label} className="text-center">
@@ -807,7 +939,7 @@ export default function CoursierDashboard() {
                       <p className="text-xs text-amber-600">Activez votre statut pour accepter des missions</p>
                     </div>
                     <button onClick={toggleDisponible} disabled={toggling}
-                      className="px-3 py-1.5 rounded-xl text-white text-xs font-bold shrink-0" style={{ background: '#22c55e' }}>
+                      className="px-3 py-1.5 rounded-xl text-white text-xs font-bold shrink-0 transition-colors" style={{ background: '#22c55e' }}>
                       {toggling ? '...' : 'Activer'}
                     </button>
                   </div>
@@ -823,6 +955,7 @@ export default function CoursierDashboard() {
                   <>
                     {missionsVisible.map(l => {
                       const typeCfg = TYPE_BADGE[l.type] || TYPE_BADGE.standard
+                      const isProposing = proposantId === l.id
                       return (
                         <div key={l.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
                           <div className="px-4 pt-4 pb-2">
@@ -854,14 +987,60 @@ export default function CoursierDashboard() {
                                 <p className="text-xs text-yellow-700">💬 {l.instructions}</p>
                               </div>
                             )}
+
+                            {/* Formulaire contre-proposition */}
+                            {isProposing && (
+                              <div className="mb-2 flex gap-2">
+                                <div className="relative flex-1">
+                                  <input
+                                    type="number"
+                                    placeholder="Votre prix (XOF)"
+                                    value={propositionInputs[l.id] || ''}
+                                    onChange={e => setPropositionInputs(prev => ({ ...prev, [l.id]: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-orange-300 rounded-xl text-sm outline-none focus:border-orange-500 pr-12"
+                                    min={500}
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">XOF</span>
+                                </div>
+                                <button
+                                  onClick={() => handleProposerPrix(l.id)}
+                                  disabled={propositionLoading === l.id}
+                                  className="px-4 py-2 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                                >
+                                  {propositionLoading === l.id ? '...' : 'Envoyer'}
+                                </button>
+                                <button
+                                  onClick={() => setProposantId(null)}
+                                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           <div className="px-4 pb-4 flex gap-2">
-                            <button onClick={() => accepterCourse(l)} disabled={!disponible || !isVerifie}
+                            <button
+                              onClick={() => accepterCourse(l)}
+                              disabled={!disponible || !isVerifie}
                               className="flex-1 py-3 rounded-xl font-bold text-sm text-white transition-all active:scale-95 disabled:opacity-40"
-                              style={{ background: disponible && isVerifie ? '#22c55e' : '#9ca3af' }}>
+                              style={{ background: disponible && isVerifie ? '#22c55e' : '#9ca3af' }}
+                            >
                               ✅ Accepter
                             </button>
+                            {/* Bouton contre-proposition */}
+                            {disponible && isVerifie && (
+                              <button
+                                onClick={() => setProposantId(isProposing ? null : l.id)}
+                                className={`px-4 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
+                                  isProposing
+                                    ? 'bg-orange-100 text-orange-700 border-2 border-orange-300'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                                }`}
+                              >
+                                💬
+                              </button>
+                            )}
                             <Link href={`/client/suivi/${l.id}`}
                               className="w-12 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-sm transition-colors">
                               🗺️
@@ -872,8 +1051,10 @@ export default function CoursierDashboard() {
                     })}
 
                     {coursesDisponibles.length > 4 && (
-                      <button onClick={() => setShowAllMissions(!showAllMissions)}
-                        className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold text-sm hover:border-gray-400 transition-colors">
+                      <button
+                        onClick={() => setShowAllMissions(!showAllMissions)}
+                        className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold text-sm hover:border-gray-400 transition-colors"
+                      >
                         {showAllMissions ? 'Voir moins' : `Voir les ${coursesDisponibles.length - 4} autres missions`}
                       </button>
                     )}
@@ -892,13 +1073,16 @@ export default function CoursierDashboard() {
                 <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
                   <div className="text-5xl mb-3">🛵</div>
                   <h3 className="font-bold text-gray-700 text-lg">Aucune mission en cours</h3>
-                  <button onClick={() => setTab('missions')} className="mt-4 px-6 py-3 rounded-xl font-bold text-sm text-white" style={{ background: '#f97316' }}>
+                  <button onClick={() => setTab('missions')} className="mt-4 px-6 py-3 rounded-xl font-bold text-sm text-white transition-colors" style={{ background: '#f97316' }}>
                     Voir les missions →
                   </button>
                 </div>
               ) : coursesEnCours.map(l => {
                 const cfg = STATUT_CONFIG[l.statut]
-                const progress = l.statut === 'acceptee' ? 20 : l.statut === 'en_rout_depart' ? 40 : l.statut === 'colis_recupere' ? 60 : l.statut === 'en_route_arrivee' ? 80 : 100
+                const progress = l.statut === 'acceptee' ? 20
+                  : l.statut === 'en_rout_depart' ? 40
+                  : l.statut === 'colis_recupere' ? 60
+                  : l.statut === 'en_route_arrivee' ? 80 : 100
                 return (
                   <div key={l.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 12px rgba(0,0,0,0.06)' }}>
                     <div className="h-1.5 bg-gray-100">
@@ -932,12 +1116,14 @@ export default function CoursierDashboard() {
                       <div className="flex gap-2">
                         <Link href={`/coursier/mission/${l.id}`}
                           className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm text-center hover:bg-gray-200 transition-colors">
-                          🗺️ Carte
+                          🗺️ Carte & Détails
                         </Link>
                         {cfg?.next && (
-                          <button onClick={() => updateStatut(l.id, cfg.next!)}
+                          <button
+                            onClick={() => updateStatut(l.id, cfg.next!)}
                             className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-95"
-                            style={{ background: cfg.nextColor || '#f97316' }}>
+                            style={{ background: cfg.nextColor || '#f97316' }}
+                          >
                             {cfg.nextLabel}
                           </button>
                         )}
@@ -963,9 +1149,9 @@ export default function CoursierDashboard() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   {[
-                    { label: "Aujourd'hui",   val: fPrice(gainsDuJour),                                                          color: '#eab308' },
-                    { label: 'Total courses', val: String(coursier?.total_courses || 0),                                         color: '#22c55e' },
-                    { label: 'Note moy.',     val: `⭐ ${(coursier as (Coursier & { note_moyenne?: number }) | null)?.note_moyenne || '5.0'}`, color: '#f97316' },
+                    { label: "Aujourd'hui", val: fPrice(gainsDuJour),                                           color: '#eab308' },
+                    { label: 'Total courses', val: String(coursier?.total_courses || 0),                         color: '#22c55e' },
+                    { label: 'Note moy.',  val: `⭐ ${(coursier as (Coursier & { note_moyenne?: number }) | null)?.note_moyenne || '5.0'}`, color: '#f97316' },
                   ].map(s => (
                     <div key={s.label} className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
                       <p className="text-sm font-black" style={{ color: s.color }}>{s.val}</p>
@@ -990,7 +1176,7 @@ export default function CoursierDashboard() {
                 ) : transactions.slice(0, 20).map(tx => {
                   const isGain = ['gain', 'bonus'].includes(tx.type)
                   return (
-                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0" style={{ background: isGain ? '#f0fdf4' : '#fef2f2' }}>
                         {isGain ? '💰' : '📊'}
                       </div>
@@ -1011,7 +1197,6 @@ export default function CoursierDashboard() {
           {/* ══ PROFIL ══ */}
           {tab === 'profil' && (
             <div className="px-4 sm:px-0 pt-4 space-y-4">
-              {/* Carte profil */}
               <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center" style={{ boxShadow: '0 1px 12px rgba(0,0,0,0.06)' }}>
                 <div className="relative inline-block mb-3">
                   {user?.avatar_url
@@ -1039,14 +1224,12 @@ export default function CoursierDashboard() {
                 </div>
               </div>
 
-              {/* Menu */}
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 {[
-                  { onClick: () => setShowParams(true), emoji: '✏️', label: 'Modifier mon profil',       sub: user?.nom || '' },
-                  { href: '/coursier/verification',     emoji: '📋', label: 'Documents & vérification',  sub: isVerifie ? 'Vérifié ✅' : 'En attente de validation' },
-                  { href: '/coursier/wallet',           emoji: '💰', label: 'Mon Wallet',                sub: fPrice(wallet?.solde || 0) },
-                  { href: '/coursier/mission',          emoji: '🗺️',  label: 'Historique missions',       sub: `${coursier?.total_courses || 0} courses` },
-                  { href: '/client/messages',           emoji: '💬', label: 'Messages',                  sub: 'Clients & support NYME' },
+                  { onClick: () => setShowParams(true),    emoji: '✏️', label: 'Modifier mon profil',      sub: user?.nom || '' },
+                  { href: '/coursier/verification',        emoji: '📋', label: 'Documents & vérification', sub: isVerifie ? 'Vérifié ✅' : 'En attente de validation' },
+                  { href: '/coursier/wallet',              emoji: '💰', label: 'Mon Wallet',               sub: fPrice(wallet?.solde || 0) },
+                  { href: '/client/messages',              emoji: '💬', label: 'Messages',                 sub: 'Clients & support NYME' },
                 ].map((item, i) => {
                   const content = (
                     <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer">
@@ -1077,7 +1260,8 @@ export default function CoursierDashboard() {
                     )}
                   </div>
                   {notifications.slice(0, 5).map(n => (
-                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer ${!n.lu ? 'bg-orange-50/50' : ''}`}
+                    <div key={n.id}
+                      className={`flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer ${!n.lu ? 'bg-orange-50/50' : ''}`}
                       onClick={async () => {
                         if (!n.lu) {
                           await supabase.from('notifications').update({ lu: true }).eq('id', n.id)
@@ -1096,8 +1280,14 @@ export default function CoursierDashboard() {
                 </div>
               )}
 
-              <button onClick={async () => { await supabase.auth.signOut(); router.push('/coursier/login') }}
-                className="w-full py-3.5 rounded-2xl font-bold text-red-600 border-2 border-red-100 hover:bg-red-50 active:scale-[0.98] transition-all text-sm">
+              <button
+                onClick={async () => {
+                  stopGpsTracking()
+                  await supabase.auth.signOut()
+                  router.push('/coursier/login')
+                }}
+                className="w-full py-3.5 rounded-2xl font-bold text-red-600 border-2 border-red-100 hover:bg-red-50 active:scale-[0.98] transition-all text-sm"
+              >
                 🚪 Déconnexion
               </button>
             </div>
