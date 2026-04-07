@@ -1,10 +1,6 @@
-// src/app/api/admin/payer-coursier/route.ts 
-// Paiement d'un coursier — crédite son wallet
-// Structure réelle Supabase :
-//   wallets             : id, user_id, solde, total_gains, total_retraits, updated_at
-//   transactions_wallet : id, user_id, type, montant, solde_avant, solde_apres,
-//                         livraison_id, reference, note, created_at
-
+// src/app/api/admin/payer-coursier/route.ts
+// CORRECTION : p_description → p_note (nom exact du paramètre SQL)
+// Paiement d'un coursier — crédite son wallet via process_wallet_transaction
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { createClient } from '@supabase/supabase-js'
@@ -45,109 +41,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Coursier introuvable' }, { status: 404 })
     }
 
-    // 4. Essayer d'abord la fonction SQL process_wallet_transaction si elle existe
-    try {
-      const { data: txId, error: rpcErr } = await supabaseAdmin.rpc('process_wallet_transaction', {
-        p_user_id:    coursier_id,
-        p_type:       'gain',
-        p_montant:    montant,
-        p_description: description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
-      })
-      if (!rpcErr && txId) {
-        // ✅ FIX: pas de .catch() sur PostgrestFilterBuilder — await + destructuring
-        const { error: notifErr1 } = await supabaseAdmin.from('notifications').insert({
-          user_id: coursier_id,
-          type: 'paiement',
-          titre: '💰 Paiement reçu',
-          message: `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. ${description || ''}`.trim(),
-          lu: false,
-          created_at: new Date().toISOString(),
-        })
-        if (notifErr1) console.error('Erreur notification:', notifErr1)
+    // 4. Créditer via process_wallet_transaction
+    // CORRECTION : p_note (et non p_description qui n'existe pas dans la signature SQL)
+    const { data: txId, error: rpcErr } = await supabaseAdmin.rpc('process_wallet_transaction', {
+      p_user_id:    coursier_id,
+      p_type:       'gain',
+      p_montant:    montant,
+      p_reference:  `ADMIN_PAY_${coursier_id.slice(0, 8)}_${Date.now()}`,
+      p_note:       description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
+    })
 
-        return NextResponse.json({
-          success: true,
-          message: `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`,
-          transaction_id: txId,
-        })
-      }
-    } catch {}
-
-    // 5. Fallback manuel — récupérer ou créer le wallet (lié à user_id)
-    let wallet: any
-    const { data: existingWallet } = await supabaseAdmin
-      .from('wallets').select('id, solde, total_gains, total_retraits').eq('user_id', coursier_id).single()
-
-    if (!existingWallet) {
-      const { data: newWallet, error: createErr } = await supabaseAdmin
-        .from('wallets')
-        .insert({ user_id: coursier_id, solde: 0, updated_at: new Date().toISOString() })
-        .select().single()
-      if (createErr) return NextResponse.json({ error: `Erreur création wallet: ${createErr.message}` }, { status: 400 })
-      wallet = newWallet
-    } else {
-      wallet = existingWallet
+    if (rpcErr) {
+      console.error('[payer-coursier] RPC error:', rpcErr.message, rpcErr.code)
+      return NextResponse.json({ error: `Erreur paiement : ${rpcErr.message}` }, { status: 500 })
     }
 
-    const soldeAvant = Number(wallet.solde || 0)
-    const soldeApres = soldeAvant + Number(montant)
+    // 5. Mettre à jour total_gains dans la table coursiers
+    await supabaseAdmin.rpc('process_wallet_transaction', {
+      p_user_id:   coursier_id,
+      p_type:      'gain',
+      p_montant:   0,       // pas de crédit supplémentaire — juste pour forcer la mise à jour
+      p_reference: `NOP_${Date.now()}`,
+    }).then(() => {}).catch(() => {})
 
-    // 6. Mettre à jour le wallet
-    const { error: updateErr } = await supabaseAdmin
-      .from('wallets')
-      .update({
-        solde:       soldeApres,
-        total_gains: Number(wallet.total_gains || 0) + Number(montant),
-        updated_at:  new Date().toISOString(),
-      })
-      .eq('user_id', coursier_id)
-
-    if (updateErr) {
-      return NextResponse.json({ error: `Erreur mise à jour wallet: ${updateErr.message}` }, { status: 400 })
+    // Mise à jour directe de total_gains coursiers
+    const { data: wallet } = await supabaseAdmin
+      .from('wallets').select('solde').eq('user_id', coursier_id).single()
+    if (wallet) {
+      await supabaseAdmin
+        .from('coursiers')
+        .update({ total_gains: Number(wallet.solde) })
+        .eq('id', coursier_id)
     }
 
-    // 7. Enregistrer la transaction
-    const { data: tx } = await supabaseAdmin
-      .from('transactions_wallet')
-      .insert({
-        user_id:     coursier_id,
-        type:        'gain',
-        montant:     Number(montant),
-        solde_avant: soldeAvant,
-        solde_apres: soldeApres,
-        note:        description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
-        created_at:  new Date().toISOString(),
-      })
-      .select().single()
-
-    // 8. ✅ FIX: pas de .catch() — await + destructuring
-    const { error: coursierErr } = await supabaseAdmin
-      .from('coursiers')
-      .update({ total_gains: soldeApres })
-      .eq('id', coursier_id)
-    if (coursierErr) console.error('Erreur update coursiers:', coursierErr)
-
-    // 9. ✅ FIX: pas de .catch() — await + destructuring
-    const { error: notifErr2 } = await supabaseAdmin.from('notifications').insert({
-      user_id: coursier_id,
-      type: 'paiement',
-      titre: '💰 Paiement reçu',
-      message: `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. Nouveau solde : ${soldeApres.toLocaleString('fr-FR')} FCFA.`,
-      lu: false,
+    // 6. Notifier le coursier
+    const { error: notifErr } = await supabaseAdmin.from('notifications').insert({
+      user_id:    coursier_id,
+      type:       'paiement',
+      titre:      '💰 Paiement reçu',
+      message:    `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. ${description || ''}`.trim(),
+      data:       { montant, admin_id: caller.id },
+      lu:         false,
       created_at: new Date().toISOString(),
     })
-    if (notifErr2) console.error('Erreur notification finale:', notifErr2)
+    if (notifErr) console.error('[payer-coursier] notif error:', notifErr.message)
 
     return NextResponse.json({
       success:        true,
-      message:        `Paiement de ${montant} FCFA effectué pour ${utilisateur.nom}`,
-      solde_avant:    soldeAvant,
-      nouveau_solde:  soldeApres,
-      transaction_id: tx?.id,
+      message:        `Paiement de ${Number(montant).toLocaleString('fr-FR')} FCFA effectué pour ${utilisateur.nom}`,
+      transaction_id: txId,
     })
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[admin/payer-coursier]', err)
-    return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({
+      error: err instanceof Error ? err.message : 'Erreur serveur',
+    }, { status: 500 })
   }
 }
