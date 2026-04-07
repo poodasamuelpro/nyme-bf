@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-// \u2500\u2500 Types \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ── Types ────────────────────────────────────────────────────────────────────
 interface PartenaireAdmin {
   id: string; user_id: string; entreprise: string; nom_contact: string
   telephone: string | null; email_pro: string | null
@@ -56,7 +56,7 @@ interface Transaction {
   statut: string; description: string; created_at: string
 }
 
-// \u2500\u2500 Configs \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ── Configs ──────────────────────────────────────────────────────────────────
 const PLAN_CFG = {
   starter:    { label:'Starter',    color:'text-green-600 bg-green-50 border-green-200' },
   business:   { label:'Business',   color:'text-orange-600 bg-orange-50 border-orange-200' },
@@ -67,16 +67,15 @@ const STATUT_CFG: Record<string, { label: string; color: string; dot: string }> 
   actif:       { label:'Actif',       color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
   en_attente:  { label:'En attente',  color:'text-amber-600 bg-amber-50 border-amber-200',  dot:'bg-amber-400' },
   suspendu:    { label:'Suspendu',    color:'text-red-600 bg-red-50 border-red-200',        dot:'bg-red-500' },
-  rejete:      { label:'Rejet\u00e9',      color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
-  verifie:     { label:'V\u00e9rifi\u00e9',     color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
+  rejete:      { label:'Rejeté',      color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
+  verifie:     { label:'Vérifié',     color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
   hors_ligne:  { label:'Hors ligne',  color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
   disponible:  { label:'Disponible',  color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
-  occupe:      { label:'Occup\u00e9',      color:'text-blue-600 bg-blue-50 border-blue-200',     dot:'bg-blue-500' },
+  occupe:      { label:'Occupé',      color:'text-blue-600 bg-blue-50 border-blue-200',     dot:'bg-blue-500' },
 }
 
-// SECTION B \u2014 Onglet tarification ajout\u00e9
 const ONGLETS = [
-  { id:'overview',      label:'Vue g\u00e9n\u00e9rale',    icon:BarChart3 },
+  { id:'overview',      label:'Vue générale',    icon:BarChart3 },
   { id:'partenaires',   label:'Partenaires',     icon:Building2 },
   { id:'coursiers',     label:'Coursiers',       icon:Truck },
   { id:'clients',       label:'Clients',         icon:Users },
@@ -96,7 +95,7 @@ function Badge({ statut }: { statut: string }) {
   )
 }
 
-// \u2500\u2500 Composant principal \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ── Composant principal ───────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const router = useRouter()
   const [adminUser,   setAdminUser]   = useState<any>(null)
@@ -112,29 +111,24 @@ export default function AdminDashboard() {
   const [error,       setError]       = useState('')
   const [success,     setSuccess]     = useState('')
 
-  // Formulaires cr\u00e9ation
   const [formPartenaire, setFormPartenaire] = useState({
     entreprise:'', nom_contact:'', email:'', telephone:'', plan:'starter', adresse:''
   })
   const [formAdmin, setFormAdmin] = useState({ email:'', nom:'' })
   const [creating, setCreating] = useState(false)
 
-  // Modal paiement coursier
   const [modalPaiement, setModalPaiement] = useState<{ coursier: CoursierAdmin | null; montant: string; description: string }>({
     coursier: null, montant: '', description: ''
   })
 
-  // Accordion coursier documents
   const [openDoc, setOpenDoc] = useState<string | null>(null)
 
-  // SECTION C \u2014 \u00c9tats tarification
   const [baremes,       setBaremes]       = useState<any[]>([])
   const [configTarif,   setConfigTarif]   = useState<any>(null)
   const [loadingTarifs, setLoadingTarifs] = useState(false)
   const [savingTarif,   setSavingTarif]   = useState<string | null>(null)
   const [editBareme,    setEditBareme]    = useState<any>(null)
 
-  // Stats compt\u00e9es
   const stats = {
     partenaires_total:    partenaires.length,
     partenaires_actifs:   partenaires.filter(p => p.statut === 'actif').length,
@@ -149,7 +143,7 @@ export default function AdminDashboard() {
     wallets_total_solde:  wallets.reduce((acc, w) => acc + (w.solde || 0), 0),
   }
 
-  // \u2500\u2500 Auth & Chargement \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Auth & Chargement ────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace('/admin-x9k2m/login'); return }
@@ -167,24 +161,19 @@ export default function AdminDashboard() {
     setRefreshing(true)
     try {
       const [partsRes, coursRes, clientsRes, livsRes, walletsRes] = await Promise.all([
-        // Partenaires
         supabase.from('partenaires').select('*').order('created_at', { ascending: false }),
-        // Coursiers avec utilisateurs join
         supabase.from('coursiers')
           .select('*, utilisateurs(nom, email, telephone)')
           .order('created_at', { ascending: false }),
-        // Clients (r\u00f4le = client)
         supabase.from('utilisateurs')
           .select('id, nom, email, telephone, est_actif, est_verifie, created_at')
           .eq('role', 'client')
           .order('created_at', { ascending: false })
           .limit(100),
-        // Livraisons r\u00e9centes
         supabase.from('livraisons')
           .select('*, client:utilisateurs!livraisons_client_id_fkey(nom), coursier:utilisateurs!livraisons_coursier_id_fkey(nom)')
           .order('created_at', { ascending: false })
           .limit(100),
-        // Wallets avec utilisateurs
         supabase.from('wallets')
           .select('*, utilisateurs(nom, email, role)')
           .order('solde', { ascending: false })
@@ -192,24 +181,19 @@ export default function AdminDashboard() {
       ])
 
       setPartenaires(partsRes.data || [])
-
       setCoursiers((coursRes.data || []).map((c: any) => ({
         ...c,
         nom:       c.utilisateurs?.nom       || 'N/A',
         email:     c.utilisateurs?.email     || 'N/A',
         telephone: c.utilisateurs?.telephone || 'N/A',
       })))
-
       setClients(clientsRes.data || [])
-
       setLivraisons((livsRes.data || []).map((l: any) => ({
         ...l,
         client_nom:   l.client?.nom   || 'Client inconnu',
-        coursier_nom: l.coursier?.nom || 'Non assign\u00e9',
+        coursier_nom: l.coursier?.nom || 'Non assigné',
       })))
-
       setWallets(walletsRes.data || [])
-
     } catch (err: any) {
       setError('Erreur de chargement: ' + err.message)
     } finally {
@@ -217,7 +201,7 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  // SECTION D \u2014 Fonctions tarification
+  // ── Tarification ─────────────────────────────────────────────────────────────
   const loadTarifs = useCallback(async () => {
     setLoadingTarifs(true)
     try {
@@ -245,7 +229,7 @@ export default function AdminDashboard() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setSuccess(`Bar\u00e8me "${bareme.label}" mis \u00e0 jour`)
+      setSuccess(`Barème "${bareme.label}" mis à jour`)
       setEditBareme(null)
       loadTarifs()
     } catch (err: any) { setError(err.message) }
@@ -265,37 +249,36 @@ export default function AdminDashboard() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setSuccess('Configuration tarifaire mise \u00e0 jour')
+      setSuccess('Configuration tarifaire mise à jour')
     } catch (err: any) { setError(err.message) }
     finally { setSavingTarif(null) }
   }
 
-  // SECTION E \u2014 useEffect pour charger les tarifs au changement d'onglet
   useEffect(() => {
     if (onglet === 'tarification' && baremes.length === 0) {
       loadTarifs()
     }
   }, [onglet, loadTarifs])
 
-  // \u2500\u2500 Actions partenaires \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Actions partenaires ──────────────────────────────────────────────────────
   const updateStatutPartenaire = async (id: string, statut: string) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('partenaires').update({ statut, updated_at: new Date().toISOString() }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Statut partenaire mis \u00e0 jour : ${statut}`); loadData() }
+    else { setSuccess(`Statut partenaire mis à jour : ${statut}`); loadData() }
   }
 
-  // \u2500\u2500 Actions coursiers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Actions coursiers ────────────────────────────────────────────────────────
   const validerCoursier = async (id: string, statut: string) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('coursiers').update({ statut_verification: statut }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Coursier ${statut === 'verifie' ? 'v\u00e9rifi\u00e9' : 'rejet\u00e9'} avec succ\u00e8s`); loadData() }
+    else { setSuccess(`Coursier ${statut === 'verifie' ? 'vérifié' : 'rejeté'} avec succès`); loadData() }
   }
 
-  // \u2500\u2500 Paiement coursier \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Paiement coursier ────────────────────────────────────────────────────────
   const payerCoursier = async () => {
     if (!modalPaiement.coursier || !modalPaiement.montant) return
     setCreating(true); setError('')
@@ -304,38 +287,32 @@ export default function AdminDashboard() {
       const token   = session.data.session?.access_token
       const res = await fetch('/api/admin/payer-coursier', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           coursier_id: modalPaiement.coursier.id,
           montant:     parseFloat(modalPaiement.montant),
-          description: modalPaiement.description || `Paiement admin \u2014 ${new Date().toLocaleDateString('fr-FR')}`,
+          description: modalPaiement.description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur paiement')
-      setSuccess(`\u2705 Paiement de ${parseFloat(modalPaiement.montant).toLocaleString()} FCFA effectu\u00e9 pour ${modalPaiement.coursier.nom}`)
+      setSuccess(`✅ Paiement de ${parseFloat(modalPaiement.montant).toLocaleString()} FCFA effectué pour ${modalPaiement.coursier.nom}`)
       setModalPaiement({ coursier: null, montant: '', description: '' })
       loadData()
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setCreating(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setCreating(false) }
   }
 
-  // \u2500\u2500 Actions clients \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Actions clients ──────────────────────────────────────────────────────────
   const toggleClientActif = async (id: string, actif: boolean) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('utilisateurs').update({ est_actif: actif, updated_at: new Date().toISOString() }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Client ${actif ? 'activ\u00e9' : 'd\u00e9sactiv\u00e9'}`); loadData() }
+    else { setSuccess(`Client ${actif ? 'activé' : 'désactivé'}`); loadData() }
   }
 
-  // \u2500\u2500 Cr\u00e9ation partenaire \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Création partenaire ──────────────────────────────────────────────────────
   const handleCreatePartenaire = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(''); setSuccess('')
     try {
@@ -343,25 +320,19 @@ export default function AdminDashboard() {
       const token   = session.data.session?.access_token
       const res = await fetch('/api/admin/create-partenaire', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formPartenaire),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur cr\u00e9ation')
-      setSuccess(`\u2705 Partenaire cr\u00e9\u00e9 et email envoy\u00e9 !`)
+      if (!res.ok) throw new Error(data.error || 'Erreur création')
+      setSuccess(`✅ Partenaire créé et email envoyé !`)
       setFormPartenaire({ entreprise:'', nom_contact:'', email:'', telephone:'', plan:'starter', adresse:'' })
       loadData()
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setCreating(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setCreating(false) }
   }
 
-  // \u2500\u2500 Promotion admin \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Promotion admin ──────────────────────────────────────────────────────────
   const handlePromoteAdmin = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(''); setSuccess('')
     try {
@@ -369,25 +340,19 @@ export default function AdminDashboard() {
       const token   = session.data.session?.access_token
       const res = await fetch('/api/admin/create-admin', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formAdmin),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur cr\u00e9ation admin')
-      setSuccess(data.message || '\u2705 Admin cr\u00e9\u00e9 avec succ\u00e8s')
+      if (!res.ok) throw new Error(data.error || 'Erreur création admin')
+      setSuccess(data.message || '✅ Admin créé avec succès')
       setFormAdmin({ email: '', nom: '' })
       loadData()
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setCreating(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setCreating(false) }
   }
 
-  // \u2500\u2500 Filtres \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Filtres ──────────────────────────────────────────────────────────────────
   const partsFiltered = partenaires.filter(p =>
     recherche === '' ||
     p.entreprise.toLowerCase().includes(recherche.toLowerCase()) ||
@@ -407,7 +372,7 @@ export default function AdminDashboard() {
     c.email.toLowerCase().includes(recherche.toLowerCase())
   )
 
-  // \u2500\u2500 Render \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ── Render ───────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
       <Loader2 className="animate-spin text-[#0A2E8A]" size={40}/>
@@ -416,7 +381,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFF]">
-      {/* \u2500\u2500 Navbar \u2500\u2500 */}
+      {/* ── Navbar ── */}
       <nav className="bg-[#0A2E8A] text-white sticky top-0 z-50 shadow-md">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -428,7 +393,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3">
             <button onClick={loadData}
               className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              title="Rafra\u00eechir">
+              title="Rafraîchir">
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''}/>
             </button>
             <span className="text-sm text-white/70 hidden sm:block">{adminUser?.nom}</span>
@@ -461,7 +426,7 @@ export default function AdminDashboard() {
         </div>
       </nav>
 
-      {/* \u2500\u2500 Main \u2500\u2500 */}
+      {/* ── Main ── */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6">
         {/* Alertes globales */}
         {error && (
@@ -477,20 +442,20 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* \u2500\u2500 VUE G\u00c9N\u00c9RALE \u2500\u2500 */}
+        {/* ── VUE GÉNÉRALE ── */}
         {onglet === 'overview' && (
           <div className="space-y-6">
-            <h1 className="text-2xl font-black text-[#0A2E8A]">Vue g\u00e9n\u00e9rale</h1>
+            <h1 className="text-2xl font-black text-[#0A2E8A]">Vue générale</h1>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label:'Partenaires',     value:stats.partenaires_total,    sub:`${stats.partenaires_actifs} actifs`, icon:Building2, color:'bg-blue-600' },
-                { label:'Coursiers',       value:stats.coursiers_total,      sub:`${stats.coursiers_verifies} v\u00e9rifi\u00e9s`, icon:Truck,      color:'bg-orange-500' },
-                { label:'Clients',         value:stats.clients_total,        sub:`${stats.clients_actifs} actifs`, icon:Users,      color:'bg-green-600' },
-                { label:'Livraisons',      value:stats.livraisons_total,     sub:'Ce mois',  icon:Package,    color:'bg-purple-600' },
-                { label:'CA Estim\u00e9 (FCFA)',value:stats.ca_total.toLocaleString('fr-FR'), sub:'Total', icon:TrendingUp,  color:'bg-teal-600' },
-                { label:'Soldes Wallets',  value:stats.wallets_total_solde.toLocaleString('fr-FR'), sub:'FCFA total', icon:Wallet,     color:'bg-indigo-600' },
-                { label:'En attente',      value:stats.partenaires_attente,  sub:'Partenaires', icon:Clock,   color:'bg-amber-500' },
-                { label:'Docs \u00e0 v\u00e9rifier', value:stats.coursiers_attente,    sub:'Coursiers', icon:FileCheck, color:'bg-rose-500' },
+                { label:'Partenaires',      value:stats.partenaires_total,    sub:`${stats.partenaires_actifs} actifs`, icon:Building2, color:'bg-blue-600' },
+                { label:'Coursiers',        value:stats.coursiers_total,      sub:`${stats.coursiers_verifies} vérifiés`, icon:Truck,   color:'bg-orange-500' },
+                { label:'Clients',          value:stats.clients_total,        sub:`${stats.clients_actifs} actifs`, icon:Users,      color:'bg-green-600' },
+                { label:'Livraisons',       value:stats.livraisons_total,     sub:'Ce mois', icon:Package,           color:'bg-purple-600' },
+                { label:'CA Estimé (FCFA)', value:stats.ca_total.toLocaleString('fr-FR'), sub:'Total', icon:TrendingUp, color:'bg-teal-600' },
+                { label:'Soldes Wallets',   value:stats.wallets_total_solde.toLocaleString('fr-FR'), sub:'FCFA total', icon:Wallet, color:'bg-indigo-600' },
+                { label:'En attente',       value:stats.partenaires_attente,  sub:'Partenaires', icon:Clock,          color:'bg-amber-500' },
+                { label:'Docs à vérifier',  value:stats.coursiers_attente,    sub:'Coursiers', icon:FileCheck,        color:'bg-rose-500' },
               ].map((card, i) => (
                 <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-start gap-4">
                   <div className={`p-3 rounded-xl ${card.color} text-white shrink-0`}>
@@ -516,16 +481,16 @@ export default function AdminDashboard() {
                     <div key={p.id} className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm">
                       <div>
                         <p className="font-bold text-slate-800 text-sm">{p.entreprise}</p>
-                        <p className="text-slate-500 text-xs">{p.nom_contact} \u2022 {p.email_pro}</p>
+                        <p className="text-slate-500 text-xs">{p.nom_contact} • {p.email_pro}</p>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => updateStatutPartenaire(p.id, 'actif')}
                           className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
-                          \u2713 Valider
+                          ✓ Valider
                         </button>
                         <button onClick={() => updateStatutPartenaire(p.id, 'rejete')}
                           className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
-                          \u2717 Rejeter
+                          ✗ Rejeter
                         </button>
                       </div>
                     </div>
@@ -534,11 +499,11 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Coursiers \u00e0 v\u00e9rifier */}
+            {/* Coursiers à vérifier */}
             {stats.coursiers_attente > 0 && (
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
                 <h3 className="text-rose-700 font-bold mb-3 flex items-center gap-2">
-                  <FileCheck size={16}/> {stats.coursiers_attente} coursier(s) avec documents \u00e0 v\u00e9rifier
+                  <FileCheck size={16}/> {stats.coursiers_attente} coursier(s) avec documents à vérifier
                 </h3>
                 <div className="space-y-2">
                   {coursiers.filter(c => c.statut_verification === 'en_attente').slice(0, 5).map(c => (
@@ -550,11 +515,11 @@ export default function AdminDashboard() {
                       <div className="flex gap-2">
                         <button onClick={() => validerCoursier(c.id, 'verifie')}
                           className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
-                          \u2713 V\u00e9rifier
+                          ✓ Vérifier
                         </button>
                         <button onClick={() => validerCoursier(c.id, 'rejete')}
                           className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
-                          \u2717 Rejeter
+                          ✗ Rejeter
                         </button>
                       </div>
                     </div>
@@ -565,7 +530,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* \u2500\u2500 PARTENAIRES \u2500\u2500 */}
+        {/* ── PARTENAIRES ── */}
         {onglet === 'partenaires' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
@@ -575,15 +540,11 @@ export default function AdminDashboard() {
                 <Plus size={16}/> Nouveau
               </button>
             </div>
-
-            {/* Barre de recherche */}
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
               <input type="text" placeholder="Rechercher..." value={recherche} onChange={e => setRecherche(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#0A2E8A] text-sm"/>
             </div>
-
-            {/* Tableau partenaires */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[700px]">
@@ -606,7 +567,7 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-5 py-4">
                           <p className="text-sm text-slate-700">{p.nom_contact}</p>
-                          <p className="text-xs text-slate-400">{p.telephone || '\u2014'}</p>
+                          <p className="text-xs text-slate-400">{p.telephone || '—'}</p>
                         </td>
                         <td className="px-5 py-4">
                           <span className={`px-2 py-1 rounded-full text-[11px] font-bold border ${PLAN_CFG[p.plan]?.color || ''}`}>
@@ -646,7 +607,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {partsFiltered.length === 0 && (
-                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun partenaire trouv\u00e9</td></tr>
+                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun partenaire trouvé</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -655,23 +616,21 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* \u2500\u2500 COURSIERS \u2500\u2500 */}
+        {/* ── COURSIERS ── */}
         {onglet === 'coursiers' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-[#0A2E8A]">Coursiers ({coursiers.length})</h2>
               <div className="flex gap-2 text-xs">
-                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-bold">{stats.coursiers_verifies} v\u00e9rifi\u00e9s</span>
+                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-bold">{stats.coursiers_verifies} vérifiés</span>
                 <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">{stats.coursiers_attente} en attente</span>
               </div>
             </div>
-
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
               <input type="text" placeholder="Rechercher un coursier..." value={recherche} onChange={e => setRecherche(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#0A2E8A] text-sm"/>
             </div>
-
             <div className="space-y-3">
               {coursFiltered.map(c => (
                 <div key={c.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -686,19 +645,467 @@ export default function AdminDashboard() {
                           <Badge statut={c.statut_verification}/>
                           <Badge statut={c.statut}/>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{c.email} \u2022 {c.telephone}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{c.email} • {c.telephone}</p>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {c.total_courses || 0} courses \u2022 Gains: {(c.total_gains || 0).toLocaleString('fr-FR')} FCFA
+                          {c.total_courses || 0} courses • Gains: {(c.total_gains || 0).toLocaleString('fr-FR')} FCFA
                         </p>
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                      {/* Documents */}
+                      {/* Documents accordion */}
                       <button
                         onClick={() => setOpenDoc(openDoc === c.id ? null : c.id)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold hover:bg-blue-100 hover:text-blue-700 transition-all">
                         <Eye size={12}/>Docs
                         {openDoc === c.id ? <ChevronUp size={11}/> : <ChevronDown size={11}/>}
                       </button>
-                      {/* V\u00e9rifier */}
-                      <button onClick={() => validerCoursier(c.id, 'verifie')}
+                      {/* Vérifier */}
+                      {c.statut_verification !== 'verifie' && (
+                        <button onClick={() => validerCoursier(c.id, 'verifie')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
+                          <UserCheck size={12}/> Vérifier
+                        </button>
+                      )}
+                      {/* Rejeter */}
+                      {c.statut_verification !== 'rejete' && (
+                        <button onClick={() => validerCoursier(c.id, 'rejete')}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
+                          <XCircle size={12}/> Rejeter
+                        </button>
+                      )}
+                      {/* Payer */}
+                      <button
+                        onClick={() => setModalPaiement({ coursier: c, montant: '', description: '' })}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-xs font-bold hover:bg-orange-500 hover:text-white transition-all">
+                        <DollarSign size={12}/> Payer
+                      </button>
+                    </div>
+                  </div>
+                  {/* Documents accordion */}
+                  {openDoc === c.id && (
+                    <div className="border-t border-slate-100 px-5 py-4 bg-slate-50 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { label: 'CNI Recto', url: c.cni_recto_url },
+                        { label: 'CNI Verso', url: c.cni_verso_url },
+                        { label: 'Permis',    url: c.permis_url },
+                      ].map(doc => (
+                        <div key={doc.label} className="bg-white rounded-xl border border-slate-200 p-3">
+                          <p className="text-xs font-bold text-slate-500 mb-2">{doc.label}</p>
+                          {doc.url ? (
+                            <a href={doc.url} target="_blank" rel="noreferrer"
+                              className="text-xs text-blue-600 underline hover:text-blue-800">
+                              Voir le document
+                            </a>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">Non fourni</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {coursFiltered.length === 0 && (
+                <div className="text-center py-10 text-slate-400 text-sm">Aucun coursier trouvé</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── CLIENTS ── */}
+        {onglet === 'clients' && (
+          <div className="space-y-5">
+            <h2 className="text-xl font-black text-[#0A2E8A]">Clients ({clients.length})</h2>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+              <input type="text" placeholder="Rechercher un client..." value={recherche} onChange={e => setRecherche(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#0A2E8A] text-sm"/>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Client</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Contact</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Inscrit le</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {clientsFiltered.map(c => (
+                      <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-800 text-sm">{c.nom}</p>
+                          <p className="text-xs text-slate-400">{c.email}</p>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-slate-600">{c.telephone || '—'}</td>
+                        <td className="px-5 py-4">
+                          <Badge statut={c.est_actif ? 'actif' : 'suspendu'}/>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-slate-400">
+                          {new Date(c.created_at).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-5 py-4">
+                          <button
+                            onClick={() => toggleClientActif(c.id, !c.est_actif)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              c.est_actif
+                                ? 'bg-red-50 text-red-700 hover:bg-red-600 hover:text-white'
+                                : 'bg-green-50 text-green-700 hover:bg-green-600 hover:text-white'
+                            }`}>
+                            {c.est_actif ? <><Ban size={11}/> Désactiver</> : <><UserCheck size={11}/> Activer</>}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {clientsFiltered.length === 0 && (
+                      <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun client trouvé</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── LIVRAISONS ── */}
+        {onglet === 'livraisons' && (
+          <div className="space-y-5">
+            <h2 className="text-xl font-black text-[#0A2E8A]">Courses ({livraisons.length})</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[800px]">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Client</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Coursier</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Trajet</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Statut</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Prix</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {livraisons.map(l => (
+                      <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-4 text-sm font-bold text-slate-800">{l.client_nom}</td>
+                        <td className="px-5 py-4 text-sm text-slate-600">{l.coursier_nom}</td>
+                        <td className="px-5 py-4 max-w-[200px]">
+                          <p className="text-xs text-slate-600 truncate">{l.depart_adresse}</p>
+                          <p className="text-xs text-slate-400 truncate">→ {l.arrivee_adresse}</p>
+                        </td>
+                        <td className="px-5 py-4"><Badge statut={l.statut}/></td>
+                        <td className="px-5 py-4 text-sm font-bold text-slate-700">
+                          {(l.prix_final || 0).toLocaleString('fr-FR')} FCFA
+                        </td>
+                        <td className="px-5 py-4 text-xs text-slate-400">
+                          {new Date(l.created_at).toLocaleDateString('fr-FR')}
+                        </td>
+                      </tr>
+                    ))}
+                    {livraisons.length === 0 && (
+                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucune course</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── WALLET / FINANCES ── */}
+        {onglet === 'wallet' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black text-[#0A2E8A]">Wallet / Finances</h2>
+              <div className="text-sm font-bold text-slate-600">
+                Total en circulation: <span className="text-[#0A2E8A]">{stats.wallets_total_solde.toLocaleString('fr-FR')} FCFA</span>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[700px]">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Utilisateur</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Rôle</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Solde</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Total Gains</th>
+                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Total Retraits</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {wallets.map(w => (
+                      <tr key={w.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-4">
+                          <p className="font-bold text-slate-800 text-sm">{w.utilisateur?.nom || '—'}</p>
+                          <p className="text-xs text-slate-400">{w.utilisateur?.email || '—'}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold capitalize">
+                            {w.utilisateur?.role || '—'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm font-bold text-green-700">
+                          {(w.solde || 0).toLocaleString('fr-FR')} FCFA
+                        </td>
+                        <td className="px-5 py-4 text-sm text-slate-600">
+                          {(w.total_gains || 0).toLocaleString('fr-FR')} FCFA
+                        </td>
+                        <td className="px-5 py-4 text-sm text-slate-600">
+                          {(w.total_retraits || 0).toLocaleString('fr-FR')} FCFA
+                        </td>
+                      </tr>
+                    ))}
+                    {wallets.length === 0 && (
+                      <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun wallet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TARIFICATION ── */}
+        {onglet === 'tarification' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-black text-[#0A2E8A]">Tarification</h2>
+            {loadingTarifs ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="animate-spin text-[#0A2E8A]" size={32}/>
+              </div>
+            ) : (
+              <>
+                {/* Config globale */}
+                {configTarif && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <TrendingUp size={16} className="text-[#0A2E8A]"/> Configuration globale
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {Object.entries(configTarif).filter(([k]) => k !== 'id' && k !== 'created_at' && k !== 'updated_at').map(([key, val]) => (
+                        <div key={key}>
+                          <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{key.replace(/_/g,' ')}</label>
+                          <input
+                            type="number"
+                            value={val as number}
+                            onChange={e => setConfigTarif({ ...configTarif, [key]: parseFloat(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={saveConfig}
+                      disabled={savingTarif === 'config'}
+                      className="mt-4 px-4 py-2 bg-[#0A2E8A] text-white rounded-xl text-sm font-bold hover:bg-[#0d38a5] transition-all flex items-center gap-2 disabled:opacity-60">
+                      {savingTarif === 'config' ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
+                      Sauvegarder
+                    </button>
+                  </div>
+                )}
+
+                {/* Barèmes */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-slate-700">Barèmes de prix</h3>
+                  {baremes.map(b => (
+                    <div key={b.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="font-bold text-slate-800">{b.label || b.type}</p>
+                          <p className="text-xs text-slate-400">{b.description || ''}</p>
+                        </div>
+                        <button
+                          onClick={() => setEditBareme(editBareme?.id === b.id ? null : b)}
+                          className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold hover:bg-blue-100 hover:text-blue-700 transition-all">
+                          {editBareme?.id === b.id ? 'Annuler' : 'Modifier'}
+                        </button>
+                      </div>
+                      {editBareme?.id === b.id && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+                          {Object.entries(editBareme).filter(([k]) => !['id','label','description','type','created_at','updated_at'].includes(k)).map(([key, val]) => (
+                            <div key={key}>
+                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{key.replace(/_/g,' ')}</label>
+                              <input
+                                type="number"
+                                value={val as number}
+                                onChange={e => setEditBareme({ ...editBareme, [key]: parseFloat(e.target.value) })}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                              />
+                            </div>
+                          ))}
+                          <div className="col-span-full">
+                            <button
+                              onClick={() => saveBareme(editBareme)}
+                              disabled={savingTarif === b.id}
+                              className="px-4 py-2 bg-[#E87722] text-white rounded-xl text-sm font-bold hover:bg-[#d06a1a] transition-all flex items-center gap-2 disabled:opacity-60">
+                              {savingTarif === b.id ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle size={14}/>}
+                              Enregistrer ce barème
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {baremes.length === 0 && (
+                    <div className="text-center py-10 text-slate-400 text-sm">Aucun barème configuré</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── ACTIONS ADMIN ── */}
+        {onglet === 'creation' && (
+          <div className="space-y-6 max-w-2xl">
+            <h2 className="text-xl font-black text-[#0A2E8A]">Actions Admin</h2>
+
+            {/* Créer partenaire */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Building2 size={16} className="text-[#0A2E8A]"/> Créer un partenaire
+              </h3>
+              <form onSubmit={handleCreatePartenaire} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Entreprise *</label>
+                    <input type="text" required value={formPartenaire.entreprise}
+                      onChange={e => setFormPartenaire({...formPartenaire, entreprise: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                      placeholder="Nom entreprise"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Contact *</label>
+                    <input type="text" required value={formPartenaire.nom_contact}
+                      onChange={e => setFormPartenaire({...formPartenaire, nom_contact: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                      placeholder="Nom du contact"/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Email *</label>
+                    <input type="email" required value={formPartenaire.email}
+                      onChange={e => setFormPartenaire({...formPartenaire, email: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                      placeholder="email@entreprise.com"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Téléphone</label>
+                    <input type="tel" value={formPartenaire.telephone}
+                      onChange={e => setFormPartenaire({...formPartenaire, telephone: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                      placeholder="+226 XX XX XX XX"/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Plan *</label>
+                    <select value={formPartenaire.plan}
+                      onChange={e => setFormPartenaire({...formPartenaire, plan: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A] bg-white">
+                      <option value="starter">Starter</option>
+                      <option value="business">Business</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Adresse</label>
+                    <input type="text" value={formPartenaire.adresse}
+                      onChange={e => setFormPartenaire({...formPartenaire, adresse: e.target.value})}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                      placeholder="Adresse"/>
+                  </div>
+                </div>
+                <button type="submit" disabled={creating}
+                  className="w-full py-3 bg-[#0A2E8A] text-white rounded-xl font-bold hover:bg-[#0d38a5] transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  {creating ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16}/>}
+                  Créer le partenaire
+                </button>
+              </form>
+            </div>
+
+            {/* Promouvoir admin */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <ShieldCheck size={16} className="text-[#0A2E8A]"/> Promouvoir en Admin
+              </h3>
+              <form onSubmit={handlePromoteAdmin} className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-1">Email *</label>
+                  <input type="email" required value={formAdmin.email}
+                    onChange={e => setFormAdmin({...formAdmin, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                    placeholder="email@exemple.com"/>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 block mb-1">Nom</label>
+                  <input type="text" value={formAdmin.nom}
+                    onChange={e => setFormAdmin({...formAdmin, nom: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0A2E8A]"
+                    placeholder="Nom complet"/>
+                </div>
+                <button type="submit" disabled={creating}
+                  className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  {creating ? <Loader2 size={16} className="animate-spin"/> : <ShieldCheck size={16}/>}
+                  Promouvoir Admin
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* ── Modal Paiement Coursier ── */}
+      {modalPaiement.coursier && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-black text-slate-800 text-lg">
+                Payer {modalPaiement.coursier.nom}
+              </h3>
+              <button onClick={() => setModalPaiement({ coursier: null, montant: '', description: '' })}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <X size={18}/>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Montant (FCFA) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={modalPaiement.montant}
+                  onChange={e => setModalPaiement({ ...modalPaiement, montant: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A2E8A] text-lg font-bold"
+                  placeholder="Ex: 5000"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Description</label>
+                <input
+                  type="text"
+                  value={modalPaiement.description}
+                  onChange={e => setModalPaiement({ ...modalPaiement, description: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A2E8A]"
+                  placeholder="Paiement semaine, bonus..."
+                />
+              </div>
+              <button
+                onClick={payerCoursier}
+                disabled={creating || !modalPaiement.montant}
+                className="w-full py-3 bg-[#E87722] text-white rounded-xl font-bold hover:bg-[#d06a1a] transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                {creating ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>}
+                Envoyer le paiement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
