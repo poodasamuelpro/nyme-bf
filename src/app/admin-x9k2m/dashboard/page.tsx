@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-// ── Types ──────────────────────────────────────────────────────────
+// \u2500\u2500 Types \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 interface PartenaireAdmin {
   id: string; user_id: string; entreprise: string; nom_contact: string
   telephone: string | null; email_pro: string | null
@@ -56,7 +56,7 @@ interface Transaction {
   statut: string; description: string; created_at: string
 }
 
-// ── Configs ────────────────────────────────────────────────────────
+// \u2500\u2500 Configs \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 const PLAN_CFG = {
   starter:    { label:'Starter',    color:'text-green-600 bg-green-50 border-green-200' },
   business:   { label:'Business',   color:'text-orange-600 bg-orange-50 border-orange-200' },
@@ -67,21 +67,23 @@ const STATUT_CFG: Record<string, { label: string; color: string; dot: string }> 
   actif:       { label:'Actif',       color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
   en_attente:  { label:'En attente',  color:'text-amber-600 bg-amber-50 border-amber-200',  dot:'bg-amber-400' },
   suspendu:    { label:'Suspendu',    color:'text-red-600 bg-red-50 border-red-200',        dot:'bg-red-500' },
-  rejete:      { label:'Rejeté',      color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
-  verifie:     { label:'Vérifié',     color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
+  rejete:      { label:'Rejet\u00e9',      color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
+  verifie:     { label:'V\u00e9rifi\u00e9',     color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
   hors_ligne:  { label:'Hors ligne',  color:'text-gray-600 bg-gray-50 border-gray-200',     dot:'bg-gray-400' },
   disponible:  { label:'Disponible',  color:'text-green-600 bg-green-50 border-green-200',  dot:'bg-green-500' },
-  occupe:      { label:'Occupé',      color:'text-blue-600 bg-blue-50 border-blue-200',     dot:'bg-blue-500' },
+  occupe:      { label:'Occup\u00e9',      color:'text-blue-600 bg-blue-50 border-blue-200',     dot:'bg-blue-500' },
 }
 
+// SECTION B \u2014 Onglet tarification ajout\u00e9
 const ONGLETS = [
-  { id:'overview',    label:'Vue générale',   icon:BarChart3 },
-  { id:'partenaires', label:'Partenaires',    icon:Building2 },
-  { id:'coursiers',   label:'Coursiers',      icon:Truck },
-  { id:'clients',     label:'Clients',        icon:Users },
-  { id:'livraisons',  label:'Courses',        icon:Package },
-  { id:'wallet',      label:'Wallet/Finances', icon:Wallet },
-  { id:'creation',    label:'Actions Admin',  icon:Plus },
+  { id:'overview',      label:'Vue g\u00e9n\u00e9rale',    icon:BarChart3 },
+  { id:'partenaires',   label:'Partenaires',     icon:Building2 },
+  { id:'coursiers',     label:'Coursiers',       icon:Truck },
+  { id:'clients',       label:'Clients',         icon:Users },
+  { id:'livraisons',    label:'Courses',         icon:Package },
+  { id:'wallet',        label:'Wallet/Finances', icon:Wallet },
+  { id:'tarification',  label:'Tarification',    icon:TrendingUp },
+  { id:'creation',      label:'Actions Admin',   icon:Plus },
 ]
 
 function Badge({ statut }: { statut: string }) {
@@ -94,7 +96,7 @@ function Badge({ statut }: { statut: string }) {
   )
 }
 
-// ── Composant principal ────────────────────────────────────────────
+// \u2500\u2500 Composant principal \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 export default function AdminDashboard() {
   const router = useRouter()
   const [adminUser,   setAdminUser]   = useState<any>(null)
@@ -110,7 +112,7 @@ export default function AdminDashboard() {
   const [error,       setError]       = useState('')
   const [success,     setSuccess]     = useState('')
 
-  // Formulaires création
+  // Formulaires cr\u00e9ation
   const [formPartenaire, setFormPartenaire] = useState({
     entreprise:'', nom_contact:'', email:'', telephone:'', plan:'starter', adresse:''
   })
@@ -125,7 +127,14 @@ export default function AdminDashboard() {
   // Accordion coursier documents
   const [openDoc, setOpenDoc] = useState<string | null>(null)
 
-  // Stats comptées
+  // SECTION C \u2014 \u00c9tats tarification
+  const [baremes,       setBaremes]       = useState<any[]>([])
+  const [configTarif,   setConfigTarif]   = useState<any>(null)
+  const [loadingTarifs, setLoadingTarifs] = useState(false)
+  const [savingTarif,   setSavingTarif]   = useState<string | null>(null)
+  const [editBareme,    setEditBareme]    = useState<any>(null)
+
+  // Stats compt\u00e9es
   const stats = {
     partenaires_total:    partenaires.length,
     partenaires_actifs:   partenaires.filter(p => p.statut === 'actif').length,
@@ -140,7 +149,7 @@ export default function AdminDashboard() {
     wallets_total_solde:  wallets.reduce((acc, w) => acc + (w.solde || 0), 0),
   }
 
-  // ── Auth & Chargement ──────────────────────────────────────────
+  // \u2500\u2500 Auth & Chargement \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace('/admin-x9k2m/login'); return }
@@ -164,13 +173,13 @@ export default function AdminDashboard() {
         supabase.from('coursiers')
           .select('*, utilisateurs(nom, email, telephone)')
           .order('created_at', { ascending: false }),
-        // Clients (rôle = client)
+        // Clients (r\u00f4le = client)
         supabase.from('utilisateurs')
           .select('id, nom, email, telephone, est_actif, est_verifie, created_at')
           .eq('role', 'client')
           .order('created_at', { ascending: false })
           .limit(100),
-        // Livraisons récentes
+        // Livraisons r\u00e9centes
         supabase.from('livraisons')
           .select('*, client:utilisateurs!livraisons_client_id_fkey(nom), coursier:utilisateurs!livraisons_coursier_id_fkey(nom)')
           .order('created_at', { ascending: false })
@@ -196,7 +205,7 @@ export default function AdminDashboard() {
       setLivraisons((livsRes.data || []).map((l: any) => ({
         ...l,
         client_nom:   l.client?.nom   || 'Client inconnu',
-        coursier_nom: l.coursier?.nom || 'Non assigné',
+        coursier_nom: l.coursier?.nom || 'Non assign\u00e9',
       })))
 
       setWallets(walletsRes.data || [])
@@ -208,25 +217,85 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  // ── Actions partenaires ────────────────────────────────────────
+  // SECTION D \u2014 Fonctions tarification
+  const loadTarifs = useCallback(async () => {
+    setLoadingTarifs(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token   = session.data.session?.access_token
+      const res = await fetch('/api/admin/tarifs', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.baremes) setBaremes(data.baremes)
+      if (data.config)  setConfigTarif(data.config)
+    } catch (err: any) { setError('Erreur chargement tarifs: ' + err.message) }
+    finally { setLoadingTarifs(false) }
+  }, [])
+
+  const saveBareme = async (bareme: any) => {
+    setSavingTarif(bareme.id)
+    try {
+      const session = await supabase.auth.getSession()
+      const token   = session.data.session?.access_token
+      const res = await fetch('/api/admin/tarifs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ type: 'bareme', id: bareme.id, data: bareme }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSuccess(`Bar\u00e8me "${bareme.label}" mis \u00e0 jour`)
+      setEditBareme(null)
+      loadTarifs()
+    } catch (err: any) { setError(err.message) }
+    finally { setSavingTarif(null) }
+  }
+
+  const saveConfig = async () => {
+    if (!configTarif) return
+    setSavingTarif('config')
+    try {
+      const session = await supabase.auth.getSession()
+      const token   = session.data.session?.access_token
+      const res = await fetch('/api/admin/tarifs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ type: 'config', data: configTarif }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSuccess('Configuration tarifaire mise \u00e0 jour')
+    } catch (err: any) { setError(err.message) }
+    finally { setSavingTarif(null) }
+  }
+
+  // SECTION E \u2014 useEffect pour charger les tarifs au changement d'onglet
+  useEffect(() => {
+    if (onglet === 'tarification' && baremes.length === 0) {
+      loadTarifs()
+    }
+  }, [onglet, loadTarifs])
+
+  // \u2500\u2500 Actions partenaires \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const updateStatutPartenaire = async (id: string, statut: string) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('partenaires').update({ statut, updated_at: new Date().toISOString() }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Statut partenaire mis à jour : ${statut}`); loadData() }
+    else { setSuccess(`Statut partenaire mis \u00e0 jour : ${statut}`); loadData() }
   }
 
-  // ── Actions coursiers ──────────────────────────────────────────
+  // \u2500\u2500 Actions coursiers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const validerCoursier = async (id: string, statut: string) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('coursiers').update({ statut_verification: statut }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Coursier ${statut === 'verifie' ? 'vérifié' : 'rejeté'} avec succès`); loadData() }
+    else { setSuccess(`Coursier ${statut === 'verifie' ? 'v\u00e9rifi\u00e9' : 'rejet\u00e9'} avec succ\u00e8s`); loadData() }
   }
 
-  // ── Paiement coursier ──────────────────────────────────────────
+  // \u2500\u2500 Paiement coursier \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const payerCoursier = async () => {
     if (!modalPaiement.coursier || !modalPaiement.montant) return
     setCreating(true); setError('')
@@ -242,12 +311,12 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           coursier_id: modalPaiement.coursier.id,
           montant:     parseFloat(modalPaiement.montant),
-          description: modalPaiement.description || `Paiement admin — ${new Date().toLocaleDateString('fr-FR')}`,
+          description: modalPaiement.description || `Paiement admin \u2014 ${new Date().toLocaleDateString('fr-FR')}`,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur paiement')
-      setSuccess(`✅ Paiement de ${parseFloat(modalPaiement.montant).toLocaleString()} FCFA effectué pour ${modalPaiement.coursier.nom}`)
+      setSuccess(`\u2705 Paiement de ${parseFloat(modalPaiement.montant).toLocaleString()} FCFA effectu\u00e9 pour ${modalPaiement.coursier.nom}`)
       setModalPaiement({ coursier: null, montant: '', description: '' })
       loadData()
     } catch (err: any) {
@@ -257,16 +326,16 @@ export default function AdminDashboard() {
     }
   }
 
-  // ── Actions clients ────────────────────────────────────────────
+  // \u2500\u2500 Actions clients \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const toggleClientActif = async (id: string, actif: boolean) => {
     setError(''); setSuccess('')
     const { error: err } = await supabase
       .from('utilisateurs').update({ est_actif: actif, updated_at: new Date().toISOString() }).eq('id', id)
     if (err) setError(err.message)
-    else { setSuccess(`Client ${actif ? 'activé' : 'désactivé'}`); loadData() }
+    else { setSuccess(`Client ${actif ? 'activ\u00e9' : 'd\u00e9sactiv\u00e9'}`); loadData() }
   }
 
-  // ── Création partenaire ────────────────────────────────────────
+  // \u2500\u2500 Cr\u00e9ation partenaire \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const handleCreatePartenaire = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(''); setSuccess('')
     try {
@@ -281,8 +350,8 @@ export default function AdminDashboard() {
         body: JSON.stringify(formPartenaire),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur création')
-      setSuccess(`✅ Partenaire créé et email envoyé !`)
+      if (!res.ok) throw new Error(data.error || 'Erreur cr\u00e9ation')
+      setSuccess(`\u2705 Partenaire cr\u00e9\u00e9 et email envoy\u00e9 !`)
       setFormPartenaire({ entreprise:'', nom_contact:'', email:'', telephone:'', plan:'starter', adresse:'' })
       loadData()
     } catch (err: any) {
@@ -292,7 +361,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // ── Promotion admin ────────────────────────────────────────────
+  // \u2500\u2500 Promotion admin \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const handlePromoteAdmin = async (e: React.FormEvent) => {
     e.preventDefault(); setCreating(true); setError(''); setSuccess('')
     try {
@@ -307,8 +376,8 @@ export default function AdminDashboard() {
         body: JSON.stringify(formAdmin),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur création admin')
-      setSuccess(data.message || '✅ Admin créé avec succès')
+      if (!res.ok) throw new Error(data.error || 'Erreur cr\u00e9ation admin')
+      setSuccess(data.message || '\u2705 Admin cr\u00e9\u00e9 avec succ\u00e8s')
       setFormAdmin({ email: '', nom: '' })
       loadData()
     } catch (err: any) {
@@ -318,7 +387,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // ── Filtres ────────────────────────────────────────────────────
+  // \u2500\u2500 Filtres \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   const partsFiltered = partenaires.filter(p =>
     recherche === '' ||
     p.entreprise.toLowerCase().includes(recherche.toLowerCase()) ||
@@ -338,7 +407,7 @@ export default function AdminDashboard() {
     c.email.toLowerCase().includes(recherche.toLowerCase())
   )
 
-  // ── Render ─────────────────────────────────────────────────────
+  // \u2500\u2500 Render \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   if (loading) return (
     <div className="min-h-screen bg-[#F8FAFF] flex items-center justify-center">
       <Loader2 className="animate-spin text-[#0A2E8A]" size={40}/>
@@ -347,7 +416,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFF]">
-      {/* ── Navbar ── */}
+      {/* \u2500\u2500 Navbar \u2500\u2500 */}
       <nav className="bg-[#0A2E8A] text-white sticky top-0 z-50 shadow-md">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -359,7 +428,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3">
             <button onClick={loadData}
               className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              title="Rafraîchir">
+              title="Rafra\u00eechir">
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''}/>
             </button>
             <span className="text-sm text-white/70 hidden sm:block">{adminUser?.nom}</span>
@@ -392,7 +461,7 @@ export default function AdminDashboard() {
         </div>
       </nav>
 
-      {/* ── Main ── */}
+      {/* \u2500\u2500 Main \u2500\u2500 */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6">
         {/* Alertes globales */}
         {error && (
@@ -408,20 +477,20 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── VUE GÉNÉRALE ── */}
+        {/* \u2500\u2500 VUE G\u00c9N\u00c9RALE \u2500\u2500 */}
         {onglet === 'overview' && (
           <div className="space-y-6">
-            <h1 className="text-2xl font-black text-[#0A2E8A]">Vue générale</h1>
+            <h1 className="text-2xl font-black text-[#0A2E8A]">Vue g\u00e9n\u00e9rale</h1>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label:'Partenaires',     value:stats.partenaires_total,    sub:`${stats.partenaires_actifs} actifs`, icon:Building2, color:'bg-blue-600' },
-                { label:'Coursiers',       value:stats.coursiers_total,      sub:`${stats.coursiers_verifies} vérifiés`, icon:Truck,      color:'bg-orange-500' },
+                { label:'Coursiers',       value:stats.coursiers_total,      sub:`${stats.coursiers_verifies} v\u00e9rifi\u00e9s`, icon:Truck,      color:'bg-orange-500' },
                 { label:'Clients',         value:stats.clients_total,        sub:`${stats.clients_actifs} actifs`, icon:Users,      color:'bg-green-600' },
                 { label:'Livraisons',      value:stats.livraisons_total,     sub:'Ce mois',  icon:Package,    color:'bg-purple-600' },
-                { label:'CA Estimé (FCFA)',value:stats.ca_total.toLocaleString('fr-FR'), sub:'Total', icon:TrendingUp,  color:'bg-teal-600' },
+                { label:'CA Estim\u00e9 (FCFA)',value:stats.ca_total.toLocaleString('fr-FR'), sub:'Total', icon:TrendingUp,  color:'bg-teal-600' },
                 { label:'Soldes Wallets',  value:stats.wallets_total_solde.toLocaleString('fr-FR'), sub:'FCFA total', icon:Wallet,     color:'bg-indigo-600' },
                 { label:'En attente',      value:stats.partenaires_attente,  sub:'Partenaires', icon:Clock,   color:'bg-amber-500' },
-                { label:'Docs à vérifier', value:stats.coursiers_attente,    sub:'Coursiers', icon:FileCheck, color:'bg-rose-500' },
+                { label:'Docs \u00e0 v\u00e9rifier', value:stats.coursiers_attente,    sub:'Coursiers', icon:FileCheck, color:'bg-rose-500' },
               ].map((card, i) => (
                 <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-start gap-4">
                   <div className={`p-3 rounded-xl ${card.color} text-white shrink-0`}>
@@ -447,16 +516,16 @@ export default function AdminDashboard() {
                     <div key={p.id} className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm">
                       <div>
                         <p className="font-bold text-slate-800 text-sm">{p.entreprise}</p>
-                        <p className="text-slate-500 text-xs">{p.nom_contact} • {p.email_pro}</p>
+                        <p className="text-slate-500 text-xs">{p.nom_contact} \u2022 {p.email_pro}</p>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => updateStatutPartenaire(p.id, 'actif')}
                           className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
-                          ✓ Valider
+                          \u2713 Valider
                         </button>
                         <button onClick={() => updateStatutPartenaire(p.id, 'rejete')}
                           className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
-                          ✗ Rejeter
+                          \u2717 Rejeter
                         </button>
                       </div>
                     </div>
@@ -465,11 +534,11 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Coursiers à vérifier */}
+            {/* Coursiers \u00e0 v\u00e9rifier */}
             {stats.coursiers_attente > 0 && (
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5">
                 <h3 className="text-rose-700 font-bold mb-3 flex items-center gap-2">
-                  <FileCheck size={16}/> {stats.coursiers_attente} coursier(s) avec documents à vérifier
+                  <FileCheck size={16}/> {stats.coursiers_attente} coursier(s) avec documents \u00e0 v\u00e9rifier
                 </h3>
                 <div className="space-y-2">
                   {coursiers.filter(c => c.statut_verification === 'en_attente').slice(0, 5).map(c => (
@@ -481,11 +550,11 @@ export default function AdminDashboard() {
                       <div className="flex gap-2">
                         <button onClick={() => validerCoursier(c.id, 'verifie')}
                           className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
-                          ✓ Vérifier
+                          \u2713 V\u00e9rifier
                         </button>
                         <button onClick={() => validerCoursier(c.id, 'rejete')}
                           className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
-                          ✗ Rejeter
+                          \u2717 Rejeter
                         </button>
                       </div>
                     </div>
@@ -496,7 +565,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── PARTENAIRES ── */}
+        {/* \u2500\u2500 PARTENAIRES \u2500\u2500 */}
         {onglet === 'partenaires' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
@@ -537,7 +606,7 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-5 py-4">
                           <p className="text-sm text-slate-700">{p.nom_contact}</p>
-                          <p className="text-xs text-slate-400">{p.telephone || '—'}</p>
+                          <p className="text-xs text-slate-400">{p.telephone || '\u2014'}</p>
                         </td>
                         <td className="px-5 py-4">
                           <span className={`px-2 py-1 rounded-full text-[11px] font-bold border ${PLAN_CFG[p.plan]?.color || ''}`}>
@@ -577,7 +646,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {partsFiltered.length === 0 && (
-                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun partenaire trouvé</td></tr>
+                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun partenaire trouv\u00e9</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -586,13 +655,13 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── COURSIERS ── */}
+        {/* \u2500\u2500 COURSIERS \u2500\u2500 */}
         {onglet === 'coursiers' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-[#0A2E8A]">Coursiers ({coursiers.length})</h2>
               <div className="flex gap-2 text-xs">
-                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-bold">{stats.coursiers_verifies} vérifiés</span>
+                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-bold">{stats.coursiers_verifies} v\u00e9rifi\u00e9s</span>
                 <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">{stats.coursiers_attente} en attente</span>
               </div>
             </div>
@@ -617,9 +686,9 @@ export default function AdminDashboard() {
                           <Badge statut={c.statut_verification}/>
                           <Badge statut={c.statut}/>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{c.email} • {c.telephone}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{c.email} \u2022 {c.telephone}</p>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {c.total_courses || 0} courses • Gains: {(c.total_gains || 0).toLocaleString('fr-FR')} FCFA
+                          {c.total_courses || 0} courses \u2022 Gains: {(c.total_gains || 0).toLocaleString('fr-FR')} FCFA
                         </p>
                       </div>
                     </div>
@@ -631,395 +700,5 @@ export default function AdminDashboard() {
                         <Eye size={12}/>Docs
                         {openDoc === c.id ? <ChevronUp size={11}/> : <ChevronDown size={11}/>}
                       </button>
-                      {/* Vérifier */}
+                      {/* V\u00e9rifier */}
                       <button onClick={() => validerCoursier(c.id, 'verifie')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition-all">
-                        <ShieldCheck size={12}/>Vérifier
-                      </button>
-                      {/* Rejeter */}
-                      <button onClick={() => validerCoursier(c.id, 'rejete')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all">
-                        <XCircle size={12}/>Rejeter
-                      </button>
-                      {/* Payer */}
-                      <button onClick={() => setModalPaiement({ coursier: c, montant: '', description: '' })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A2E8A] text-white rounded-lg text-xs font-bold hover:bg-[#0d38a5] transition-all">
-                        <Send size={12}/>Payer
-                      </button>
-                    </div>
-                  </div>
-                  {/* Documents accordion */}
-                  {openDoc === c.id && (
-                    <div className="border-t border-slate-100 p-5 bg-slate-50">
-                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-3">Documents soumis</h4>
-                      <div className="flex flex-wrap gap-3">
-                        {c.cni_recto_url && (
-                          <a href={c.cni_recto_url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                            <FileCheck size={14}/> CNI Recto
-                          </a>
-                        )}
-                        {c.cni_verso_url && (
-                          <a href={c.cni_verso_url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                            <FileCheck size={14}/> CNI Verso
-                          </a>
-                        )}
-                        {c.permis_url && (
-                          <a href={c.permis_url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                            <FileCheck size={14}/> Permis de conduire
-                          </a>
-                        )}
-                        {!c.cni_recto_url && !c.cni_verso_url && !c.permis_url && (
-                          <p className="text-slate-400 text-xs italic">Aucun document soumis</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {coursFiltered.length === 0 && (
-                <div className="bg-white rounded-2xl p-10 text-center text-slate-400 text-sm">Aucun coursier trouvé</div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── CLIENTS ── */}
-        {onglet === 'clients' && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-[#0A2E8A]">Clients ({clients.length})</h2>
-              <div className="flex gap-2 text-xs">
-                <span className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full font-bold">{stats.clients_actifs} actifs</span>
-                <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full font-bold">{clients.length - stats.clients_actifs} inactifs</span>
-              </div>
-            </div>
-
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-              <input type="text" placeholder="Rechercher un client..." value={recherche} onChange={e => setRecherche(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#0A2E8A] text-sm"/>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Client</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Contact</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Inscrit le</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {clientsFiltered.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-800 text-sm">{c.nom}</p>
-                          <p className="text-xs text-slate-400">{c.email}</p>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-slate-600">{c.telephone || '—'}</td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                            c.est_actif
-                              ? 'text-green-600 bg-green-50 border-green-200'
-                              : 'text-red-600 bg-red-50 border-red-200'
-                          }`}>
-                            {c.est_actif ? '● Actif' : '● Inactif'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">
-                          {new Date(c.created_at).toLocaleDateString('fr-FR')}
-                        </td>
-                        <td className="px-5 py-4">
-                          <button
-                            onClick={() => toggleClientActif(c.id, !c.est_actif)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                              c.est_actif
-                                ? 'bg-red-50 text-red-700 hover:bg-red-600 hover:text-white'
-                                : 'bg-green-50 text-green-700 hover:bg-green-600 hover:text-white'
-                            }`}>
-                            {c.est_actif ? <><Ban size={11}/> Désactiver</> : <><UserCheck size={11}/> Activer</>}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {clientsFiltered.length === 0 && (
-                      <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun client trouvé</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── LIVRAISONS ── */}
-        {onglet === 'livraisons' && (
-          <div className="space-y-5">
-            <h2 className="text-xl font-black text-[#0A2E8A]">Courses récentes ({livraisons.length})</h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[700px]">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Client</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Coursier</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Statut</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Prix (FCFA)</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {livraisons.map(l => (
-                      <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-800 text-sm">{l.client_nom}</p>
-                          <p className="text-xs text-slate-400 truncate max-w-[200px]">{l.depart_adresse}</p>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-slate-600">{l.coursier_nom}</td>
-                        <td className="px-5 py-4"><Badge statut={l.statut}/></td>
-                        <td className="px-5 py-4 font-bold text-slate-700">
-                          {l.prix_final ? l.prix_final.toLocaleString('fr-FR') : '—'}
-                        </td>
-                        <td className="px-5 py-4 text-xs text-slate-500">
-                          {new Date(l.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'2-digit' })}
-                        </td>
-                      </tr>
-                    ))}
-                    {livraisons.length === 0 && (
-                      <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-400 text-sm">Aucune livraison</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── WALLET / FINANCES ── */}
-        {onglet === 'wallet' && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black text-[#0A2E8A]">Wallets & Finances</h2>
-              <div className="text-sm font-bold text-[#0A2E8A]">
-                Solde total : {stats.wallets_total_solde.toLocaleString('fr-FR')} FCFA
-              </div>
-            </div>
-
-            {/* Résumé wallets */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label:'Total wallets',     value:wallets.length,                          icon:Wallet,         color:'bg-blue-600' },
-                { label:'Solde total (FCFA)', value:stats.wallets_total_solde.toLocaleString('fr-FR'), icon:DollarSign,     color:'bg-green-600' },
-                { label:'Wallets coursiers',  value:wallets.filter(w => w.utilisateur?.role === 'coursier').length, icon:Truck, color:'bg-orange-500' },
-              ].map((c, i) => (
-                <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${c.color} text-white`}><c.icon size={20}/></div>
-                  <div>
-                    <p className="text-slate-500 text-xs font-bold uppercase">{c.label}</p>
-                    <p className="text-xl font-black text-slate-800">{c.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Liste wallets */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Utilisateur</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Rôle</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Solde (FCFA)</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Total gains</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Total retraits</th>
-                      <th className="px-5 py-3.5 text-xs font-bold text-slate-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {wallets.map(w => (
-                      <tr key={w.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-5 py-4">
-                          <p className="font-bold text-slate-800 text-sm">{w.utilisateur?.nom || 'N/A'}</p>
-                          <p className="text-xs text-slate-400">{w.utilisateur?.email || '—'}</p>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${
-                            w.utilisateur?.role === 'coursier' ? 'bg-orange-100 text-orange-700' :
-                            w.utilisateur?.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
-                            {w.utilisateur?.role || '—'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`font-black text-lg ${w.solde > 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {(w.solde || 0).toLocaleString('fr-FR')}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-slate-600 text-sm">
-                          {(w.total_gains || 0).toLocaleString('fr-FR')}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600 text-sm">
-                          {(w.total_retraits || 0).toLocaleString('fr-FR')}
-                        </td>
-                        <td className="px-5 py-4">
-                          {w.utilisateur?.role === 'coursier' && (
-                            <button
-                              onClick={() => {
-                                const coursier = coursiers.find(c => c.id === w.user_id)
-                                if (coursier) setModalPaiement({ coursier, montant: '', description: '' })
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A2E8A] text-white rounded-lg text-xs font-bold hover:bg-[#0d38a5] transition-all">
-                              <Send size={11}/> Payer
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {wallets.length === 0 && (
-                      <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">Aucun wallet trouvé</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── ACTIONS ADMIN ── */}
-        {onglet === 'creation' && (
-          <div className="space-y-8">
-            <h2 className="text-xl font-black text-[#0A2E8A]">Actions Administrateur</h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Créer partenaire */}
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-[#0A2E8A]">
-                  <Building2 size={20}/> Nouveau Partenaire
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">
-                  Crée un compte avec mot de passe auto-généré et envoie un email de bienvenue.
-                </p>
-                <form onSubmit={handleCreatePartenaire} className="space-y-3">
-                  <input type="text" placeholder="Entreprise *" required
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formPartenaire.entreprise} onChange={e => setFormPartenaire({...formPartenaire, entreprise: e.target.value})}/>
-                  <input type="text" placeholder="Nom du contact *" required
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formPartenaire.nom_contact} onChange={e => setFormPartenaire({...formPartenaire, nom_contact: e.target.value})}/>
-                  <input type="email" placeholder="Email professionnel *" required
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formPartenaire.email} onChange={e => setFormPartenaire({...formPartenaire, email: e.target.value})}/>
-                  <input type="tel" placeholder="Téléphone"
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formPartenaire.telephone} onChange={e => setFormPartenaire({...formPartenaire, telephone: e.target.value})}/>
-                  <input type="text" placeholder="Adresse (optionnel)"
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formPartenaire.adresse} onChange={e => setFormPartenaire({...formPartenaire, adresse: e.target.value})}/>
-                  <select className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm"
-                    value={formPartenaire.plan} onChange={e => setFormPartenaire({...formPartenaire, plan: e.target.value})}>
-                    <option value="starter">Starter — 30 livraisons/mois</option>
-                    <option value="business">Business — 100 livraisons/mois</option>
-                    <option value="enterprise">Enterprise — Illimité</option>
-                  </select>
-                  <button type="submit" disabled={creating}
-                    className="w-full py-3.5 bg-[#0A2E8A] text-white font-bold rounded-xl hover:bg-[#0d38a5] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    {creating
-                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Création...</>
-                      : <><Mail size={15}/> Créer et envoyer email</>}
-                  </button>
-                </form>
-              </div>
-
-              {/* Créer admin */}
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-black mb-6 flex items-center gap-2 text-[#0A2E8A]">
-                  <ShieldCheck size={20}/> Nouvel Administrateur
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">
-                  Crée un compte admin avec mot de passe auto-généré et envoie les credentials par email.
-                </p>
-                <form onSubmit={handlePromoteAdmin} className="space-y-3">
-                  <input type="email" placeholder="Email du nouvel admin *" required
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formAdmin.email} onChange={e => setFormAdmin({...formAdmin, email: e.target.value})}/>
-                  <input type="text" placeholder="Nom complet *" required
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#E87722] text-sm"
-                    value={formAdmin.nom} onChange={e => setFormAdmin({...formAdmin, nom: e.target.value})}/>
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-700">
-                    ℹ️ Un mot de passe temporaire sera auto-généré et envoyé par email.
-                  </div>
-                  <button type="submit" disabled={creating}
-                    className="w-full py-3.5 bg-[#E87722] text-white font-bold rounded-xl hover:bg-[#f59343] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    {creating
-                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Création...</>
-                      : <><ShieldCheck size={15}/> Créer compte admin</>}
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* ── Modal Paiement Coursier ── */}
-      {modalPaiement.coursier && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-black text-[#0A2E8A] flex items-center gap-2">
-                <CreditCard size={20}/> Payer {modalPaiement.coursier.nom}
-              </h3>
-              <button onClick={() => setModalPaiement({ coursier: null, montant: '', description: '' })}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                <X size={18}/>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">Montant (FCFA) *</label>
-                <div className="relative">
-                  <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                  <input type="number" min="100" step="100" placeholder="Ex: 5000"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#0A2E8A] text-sm"
-                    value={modalPaiement.montant}
-                    onChange={e => setModalPaiement({...modalPaiement, montant: e.target.value})}/>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">Description (optionnel)</label>
-                <input type="text" placeholder="Ex: Paiement semaine du 01/04"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:border-[#0A2E8A] text-sm"
-                  value={modalPaiement.description}
-                  onChange={e => setModalPaiement({...modalPaiement, description: e.target.value})}/>
-              </div>
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-                ⚠️ Cette action créditera le wallet du coursier de <strong>{parseFloat(modalPaiement.montant || '0').toLocaleString('fr-FR')} FCFA</strong>.
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setModalPaiement({ coursier: null, montant: '', description: '' })}
-                  className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm">
-                  Annuler
-                </button>
-                <button onClick={payerCoursier} disabled={creating || !modalPaiement.montant}
-                  className="flex-1 py-3 bg-[#0A2E8A] text-white rounded-xl font-bold hover:bg-[#0d38a5] transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2">
-                  {creating
-                    ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Traitement...</>
-                    : <><ArrowDownLeft size={15}/> Confirmer paiement</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
