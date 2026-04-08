@@ -57,12 +57,12 @@ export async function POST(req: Request) {
     }
 
     // 5. Mettre à jour total_gains dans la table coursiers
-    await supabaseAdmin.rpc('process_wallet_transaction', {
+    await Promise.resolve(supabaseAdmin.rpc('process_wallet_transaction', {
       p_user_id:   coursier_id,
       p_type:      'gain',
       p_montant:   0,       // pas de crédit supplémentaire — juste pour forcer la mise à jour
       p_reference: `NOP_${Date.now()}`,
-    }).then(() => {}).catch(() => {})
+    })).then(() => {}).catch(() => {})
 
     // Mise à jour directe de total_gains coursiers
     const { data: wallet } = await supabaseAdmin
