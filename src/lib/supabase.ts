@@ -54,11 +54,15 @@ export type Coursier = {
 // ── 3. TABLE : livraisons ────────────────────────────────────────────
 // IMPORTANT : 'en_rout_depart' SANS 'e' — c'est la valeur exacte
 // de la CHECK constraint SQL réelle. Ne pas modifier.
+// CORRECTION migration 008 : 'wallet' ajouté dans mode_paiement
+export type StatutLivraisonEnum = 'en_attente' | 'acceptee' | 'en_rout_depart' | 'colis_recupere' | 'en_route_arrivee' | 'livree' | 'annulee'
+export type ModePaiement = 'cash' | 'mobile_money' | 'carte' | 'wallet'
+
 export type Livraison = {
   id:                    string
   client_id:             string
   coursier_id:           string | null
-  statut:                'en_attente' | 'acceptee' | 'en_rout_depart' | 'colis_recupere' | 'en_route_arrivee' | 'livree' | 'annulee'
+  statut:                StatutLivraisonEnum
   type:                  'immediate' | 'urgente' | 'programmee'
   pour_tiers:            boolean | null
   depart_adresse:        string
@@ -79,13 +83,11 @@ export type Livraison = {
   distance_km:           number | null
   duree_estimee:         number | null
   statut_paiement:       'en_attente' | 'paye' | 'rembourse'
-  // mode_paiement : 'cash'|'mobile_money'|'carte' selon CHECK SQL réel (pas 'wallet')
-  mode_paiement:         'cash' | 'mobile_money' | 'carte' | null
+  mode_paiement:         ModePaiement | null
   programme_le:          string | null
   created_at:            string
   acceptee_at:           string | null
-  // CORRECTION : recupere_at (SQL réel) — était recupero_at (typo)
-  recupere_at:           string | null
+  recupere_at:           string | null   // colonne SQL réelle
   livree_at:             string | null
   annulee_at:            string | null
   annulee_par:           'client' | 'coursier' | 'admin' | null
@@ -222,16 +224,19 @@ export type PropositionPrix = {
 }
 
 // ── 12. TABLE : paiements ────────────────────────────────────────────
+// CORRECTION migration 008 : 'wallet' ajouté dans mode
 export type Paiement = {
   id:           string
   livraison_id: string
   montant:      number
-  mode:         'cash' | 'mobile_money' | 'carte'
+  mode:         ModePaiement
   reference:    string | null
   statut:       'en_attente' | 'succes' | 'echec' | 'rembourse'
+  provider:     string | null   // 'duniapay' | 'flutterwave' | 'orange' | 'wallet' | 'cash'
   metadata:     Record<string, unknown> | null
   paye_le:      string | null
   created_at:   string
+  updated_at:   string
 }
 
 // ── 13. TABLE : signalements ─────────────────────────────────────────
@@ -351,6 +356,28 @@ export type ConfigTarif = {
   updated_at:            string
 }
 
+// ── 23. TABLE : suivi_tokens (MIGRATION 009) ────────────────────────
+export type SuiviToken = {
+  id:           string
+  livraison_id: string
+  token:        string
+  created_by:   string
+  expires_at:   string
+  actif:        boolean
+  created_at:   string
+}
+
+// ── 24. TABLE : api_quota_tracking (MIGRATION 009) ──────────────────
+export type ApiQuotaTracking = {
+  id:          string
+  provider:    'mapbox' | 'google' | 'osrm'
+  annee:       number
+  mois:        number
+  nb_requetes: number
+  limite:      number | null
+  updated_at:  string
+}
+
 // ── HELPERS ──────────────────────────────────────────────────────────
 
 export async function getUtilisateur(userId: string): Promise<Utilisateur | null> {
@@ -421,4 +448,18 @@ export async function getTransactionsWallet(userId: string): Promise<Transaction
     .order('created_at', { ascending: false })
   if (error) return []
   return data as TransactionWallet[]
+}
+
+/** Crée ou récupère le wallet d'un utilisateur */
+export async function getOrCreateWallet(userId: string): Promise<Wallet | null> {
+  let wallet = await getWallet(userId)
+  if (!wallet) {
+    const { data } = await supabase
+      .from('wallets')
+      .insert({ user_id: userId, solde: 0, total_gains: 0, total_retraits: 0 })
+      .select()
+      .single()
+    wallet = data as Wallet | null
+  }
+  return wallet
 }
