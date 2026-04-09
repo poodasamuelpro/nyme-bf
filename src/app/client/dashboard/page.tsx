@@ -5,6 +5,7 @@
 // ✅ Types de course : Standard / Urgente / Planifiée
 // ✅ Vérification rôle stricte (client uniquement)
 // ✅ Responsive mobile-first / app pure sans header/footer site
+// ✅ Bouton retour sur chaque onglet secondaire
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -17,7 +18,7 @@ import {
   ArrowUpRight, CheckCircle, Zap, ArrowDown,
   TrendingUp, Wallet as WalletIcon, Camera,
   Shield, X, Save, Eye, EyeOff,
-  RefreshCw,
+  RefreshCw, ArrowLeft,
 } from 'lucide-react'
 
 type Tab = 'accueil' | 'livraisons' | 'wallet'
@@ -36,8 +37,29 @@ const fPrice = (n: number) => new Intl.NumberFormat('fr-FR').format(Math.round(n
 const fDate  = (d: string) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d))
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BOUTON RETOUR CLIENT
+// ─────────────────────────────────────────────────────────────────────────────
+function BackButton({ onBack, label = 'Accueil' }: { onBack: () => void; label?: string }) {
+  return (
+    <button
+      onClick={onBack}
+      className="flex items-center gap-2 self-start mb-1 group"
+    >
+      <span
+        className="flex items-center justify-center w-8 h-8 rounded-xl transition-all group-hover:scale-105 active:scale-95"
+        style={{ background: '#eff6ff', color: '#1a56db' }}
+      >
+        <ArrowLeft size={15} />
+      </span>
+      <span className="text-sm font-bold" style={{ color: '#1a56db' }}>
+        {label}
+      </span>
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // COMPOSANT CARTE — Google Maps si clé dispo, sinon Leaflet automatiquement
-// Types Google gérés avec `any` ciblé → aucun @types/google.maps requis
 // ─────────────────────────────────────────────────────────────────────────────
 function MapView({
   userLat, userLng, livraisons, satellite = false
@@ -56,11 +78,9 @@ function MapView({
   const lat = userLat ?? 12.3714
   const lng = userLng ?? -1.5197
 
-  // ── Helpers marqueur SVG (inline base64 — pas besoin de @types/google.maps) ─
   const svgBase64 = (svg: string) =>
     typeof window !== 'undefined' ? 'data:image/svg+xml;base64,' + window.btoa(svg) : ''
 
-  // ── INIT GOOGLE MAPS ──────────────────────────────────────────────────────
   const initGoogle = useCallback(() => {
     if (!mapRef.current) return
     try {
@@ -81,7 +101,6 @@ function MapView({
       })
       mapInstance.current = map
 
-      // Marker position utilisateur
       if (userLat && userLng) {
         new G.Marker({
           position: { lat: userLat, lng: userLng },
@@ -94,7 +113,6 @@ function MapView({
         })
       }
 
-      // Markers livraisons actives
       livraisons.filter(l => !['livree', 'annulee'].includes(l.statut)).forEach(l => {
         if (!l.arrivee_lat || !l.arrivee_lng) return
         const cfg = STATUT[l.statut]
@@ -120,7 +138,6 @@ function MapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, satellite, userLat, userLng])
 
-  // ── INIT LEAFLET (fallback) ───────────────────────────────────────────────
   const initLeaflet = useCallback(() => {
     if (!mapRef.current || typeof window === 'undefined') return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,11 +174,8 @@ function MapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, userLat, userLng])
 
-  // ── CHARGEMENT INITIAL ────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return
-
-    // Nettoyage si re-montage
     return () => {
       markersRef.current.forEach(m => { try { m.setMap?.(null) } catch {} })
       markersRef.current = []
@@ -184,7 +198,6 @@ function MapView({
     }
 
     if (apiKey) {
-      // Charger le script Google Maps dynamiquement
       const existing = document.getElementById('gmaps-script')
       if (existing) { initGoogle(); return }
 
@@ -194,16 +207,14 @@ function MapView({
       script.async = true
       script.defer = true
       script.onload  = initGoogle
-      script.onerror = initLeaflet  // Si Google échoue → Leaflet
+      script.onerror = initLeaflet
       document.head.appendChild(script)
     } else {
-      // Pas de clé Google → Leaflet directement
       initLeaflet()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Toggle satellite (Google uniquement)
   useEffect(() => {
     if (engine !== 'google' || !mapInstance.current) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -230,7 +241,6 @@ function MapView({
         className="w-full h-full"
         style={{ opacity: mapReady ? 1 : 0.6, transition: 'opacity 0.3s' }}
       />
-      {/* Badge moteur visible uniquement en dev */}
       {process.env.NODE_ENV === 'development' && engine && (
         <div className="absolute bottom-14 left-3 z-20 text-[10px] px-2 py-0.5 rounded-full font-bold"
           style={{ background: engine === 'google' ? '#1a56db' : '#64748b', color: 'white' }}>
@@ -376,7 +386,7 @@ function ParametresPanel({
                 <label className="block text-xs font-bold text-gray-500 mb-1.5">Email</label>
                 <input value={user.email || ''} disabled
                   className="w-full px-4 py-3 rounded-2xl border border-gray-100 bg-gray-50 text-gray-400 text-sm outline-none cursor-not-allowed" />
-                <p className="text-xs text-gray-400 mt-1 ml-1">L'email ne peut pas être modifié ici</p>
+                <p className="text-xs text-gray-400 mt-1 ml-1">L&apos;email ne peut pas être modifié ici</p>
               </div>
               <button onClick={handleSaveProfile} disabled={saving}
                 className="w-full py-3.5 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:scale-[0.98] transition-all"
@@ -517,7 +527,6 @@ export default function ClientDashboard() {
       const { data: u } = await supabase.from('utilisateurs').select('*').eq('id', session.user.id).single()
       if (!u) { router.replace('/login'); return }
 
-      // ── Vérification rôle stricte ─────────────────────────────────────
       if (u.role !== 'client') {
         const redirects: Record<string, string> = {
           coursier:   '/coursier/dashboard-new',
@@ -645,11 +654,9 @@ export default function ClientDashboard() {
           {/* ══ ACCUEIL ══ */}
           {tab === 'accueil' && (
             <div>
-              {/* Carte avec gestion moteur */}
               <div className={`relative transition-all duration-300 overflow-hidden bg-gray-100 ${mapExpanded ? 'h-[60vh]' : 'h-52 sm:h-64'}`}>
                 <MapView userLat={userLat} userLng={userLng} livraisons={livraisons} satellite={satellite} />
 
-                {/* Contrôles */}
                 <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2">
                   <div className="bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2 shadow-md flex-1">
                     <div className={`w-2 h-2 rounded-full ${userLat ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
@@ -665,7 +672,6 @@ export default function ClientDashboard() {
                   </button>
                 </div>
 
-                {/* Barre de recherche */}
                 <div className="absolute bottom-3 left-3 right-3 z-10">
                   <Link href="/client/nouvelle-livraison"
                     className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-xl border border-gray-100 active:scale-[0.98] transition-all">
@@ -800,6 +806,7 @@ export default function ClientDashboard() {
           {/* ══ LIVRAISONS ══ */}
           {tab === 'livraisons' && (
             <div className="px-4 sm:px-0 pt-4 space-y-4">
+              <BackButton onBack={() => setTab('accueil')} label="Accueil" />
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-gray-900">Mes livraisons</h2>
                 <Link href="/client/nouvelle-livraison"
@@ -889,6 +896,7 @@ export default function ClientDashboard() {
           {/* ══ WALLET ══ */}
           {tab === 'wallet' && (
             <div className="px-4 sm:px-0 pt-4 space-y-4">
+              <BackButton onBack={() => setTab('accueil')} label="Accueil" />
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-gray-900">Mon Wallet</h2>
                 <Link href="/client/wallet" className="text-blue-600 text-sm font-semibold">Gérer →</Link>
@@ -961,14 +969,12 @@ export default function ClientDashboard() {
         {/* ── BOTTOM NAV MOBILE ── */}
         <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-white border-t border-gray-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
           <div className="flex max-w-2xl mx-auto">
-            {/* Accueil */}
             <button onClick={() => setTab('accueil')}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'accueil' ? 'text-blue-600' : 'text-gray-400'}`}>
               <span className="text-lg">🏠</span>
               <span className="text-[10px] font-semibold">Accueil</span>
               {tab === 'accueil' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
             </button>
-            {/* Livraisons */}
             <button onClick={() => setTab('livraisons')}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'livraisons' ? 'text-blue-600' : 'text-gray-400'}`}>
               <span className="text-lg">📦</span>
@@ -976,19 +982,16 @@ export default function ClientDashboard() {
               {unreadCount > 0 && <span className="absolute top-1.5 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
               {tab === 'livraisons' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
             </button>
-            {/* Bouton + central */}
             <Link href="/client/nouvelle-livraison" className="flex-1 flex flex-col items-center py-1.5 relative">
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-2xl -mt-5 shadow-xl" style={{ background: 'linear-gradient(135deg, #1a56db, #f97316)' }}>+</div>
               <span className="text-[10px] font-semibold text-gray-400 mt-0.5">Livrer</span>
             </Link>
-            {/* Wallet */}
             <button onClick={() => setTab('wallet')}
               className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative ${tab === 'wallet' ? 'text-blue-600' : 'text-gray-400'}`}>
               <span className="text-lg">💰</span>
               <span className="text-[10px] font-semibold">Wallet</span>
               {tab === 'wallet' && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-blue-600" />}
             </button>
-            {/* Paramètres */}
             <button onClick={() => setShowParams(true)}
               className="flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-all relative text-gray-400">
               <span className="text-lg">⚙️</span>
