@@ -1,9 +1,21 @@
-// src/services/webrtc-call-service.ts
+// src/services/webrtc-call-service.ts — MODIFIÉ
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICE D'APPELS WEBRTC — NYME
 // Appels audio uniquement (pas vidéo) via WebRTC + Supabase Realtime
 // Signalisation : table calls_webrtc + webrtc_ice_candidates
-// Aucune dépendance externe payante — 100% gratuit
+//
+// MISE À JOUR : Intégration Cloudflare TURN Service
+//   - Les credentials TURN sont générés dynamiquement côté serveur
+//   - Endpoint : GET /api/calls/turn-credentials (auth requise)
+//   - TTL credentials : 24h (renouvelés à chaque init)
+//   - Fallback : STUN Google si Cloudflare indisponible
+//
+// CLOUDFLARE TURN CONFIG :
+//   Serveurs ICE fournis par Cloudflare :
+//   - stun:stun.cloudflare.com:3478
+//   - turn:turn.cloudflare.com:3478?transport=udp
+//   - turn:turn.cloudflare.com:3478?transport=tcp
+//   - turns:turn.cloudflare.com:5349?transport=tcp
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { supabase } from '@/lib/supabase'
@@ -48,30 +60,38 @@ export interface CallHandlers {
   onCallRefused:      (call: CallRecord)    => void
 }
 
-// ── Configuration WebRTC ──────────────────────────────────────────────────────
-
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    // STUN Google — gratuit, illimité
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    // STUN Open Relay — fallback
-    { urls: 'stun:openrelay.metered.ca:80' },
-    // TURN Open Relay — fallback pour NAT symétrique (gratuit limité)
-    {
-      urls:       'turn:openrelay.metered.ca:80',
-      username:   'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls:       'turn:openrelay.metered.ca:443',
-      username:   'openrelayproject',
-      credential: 'openrelayproject',
-    },
-  ],
-  iceCandidatePoolSize: 10,
+// Structure des credentials TURN renvoyés par /api/calls/turn-credentials
+interface TurnCredentialsResponse {
+  success:    boolean
+  source:     'cloudflare_turn' | 'fallback_stun'
+  iceServers: RTCIceServer[]
+  ttl:        number
+  warning?:   string
 }
+
+// ── Configuration WebRTC par défaut (STUN seulement) ─────────────────────────
+// Utilisé comme fallback ultime si l'API /api/calls/turn-credentials échoue
+
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  // STUN Cloudflare — premier choix
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  // STUN Google — backup fiable
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+]
+
+// ── Cache des credentials TURN ────────────────────────────────────────────────
+// Les credentials sont mis en cache pour éviter des appels API à chaque appel
+// TTL du cache : 23h (les credentials Cloudflare durent 24h)
+
+interface CachedTurnCredentials {
+  iceServers: RTCIceServer[]
+  source:     string
+  fetchedAt:  number   // timestamp ms
+}
+
+const TURN_CACHE_TTL_MS = 23 * 60 * 60 * 1000  // 23 heures
+let _turnCache: CachedTurnCredentials | null = null
 
 // ── Classe principale ────────────────────────────────────────────────────────
 
@@ -85,17 +105,95 @@ class WebRTCCallService {
   private iceChannel:       ReturnType<typeof supabase.channel> | null = null
   private cleanupTimeout:   NodeJS.Timeout | null  = null
 
+  // ── Récupération des credentials TURN Cloudflare ─────────────────────────
+
+  /**
+   * Récupère les credentials TURN depuis l'API backend /api/calls/turn-credentials.
+   * Utilise un cache côté client (TTL 23h) pour éviter les appels API répétés.
+   * Fallback sur STUN Google si l'API est indisponible.
+   *
+   * IMPORTANT : Les credentials contiennent un username et credential générés
+   * dynamiquement par Cloudflare Calls TURN Service pour l'utilisateur courant.
+   * Ils sont liés au Turn Token ID : 77f00ae2cb584d4141b0efb842de5425
+   */
+  private async getTurnIceServers(): Promise<RTCIceServer[]> {
+    // Retourner le cache si encore valide
+    if (_turnCache && (Date.now() - _turnCache.fetchedAt) < TURN_CACHE_TTL_MS) {
+      console.log(`[WebRTC] TURN credentials depuis cache (source: ${_turnCache.source})`)
+      return _turnCache.iceServers
+    }
+
+    try {
+      const response = await fetch('/api/calls/turn-credentials', {
+        method:  'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal:  AbortSignal.timeout(8000),
+      })
+
+      if (!response.ok) {
+        console.warn('[WebRTC] /api/calls/turn-credentials HTTP', response.status, '— fallback STUN')
+        return DEFAULT_ICE_SERVERS
+      }
+
+      const data = await response.json() as TurnCredentialsResponse
+
+      if (!data.success || !data.iceServers?.length) {
+        console.warn('[WebRTC] Réponse TURN invalide — fallback STUN')
+        return DEFAULT_ICE_SERVERS
+      }
+
+      // Mettre en cache
+      _turnCache = {
+        iceServers: data.iceServers,
+        source:     data.source,
+        fetchedAt:  Date.now(),
+      }
+
+      if (data.warning) {
+        console.warn('[WebRTC] TURN warning:', data.warning)
+      }
+
+      console.log(`[WebRTC] TURN credentials chargés depuis ${data.source}:`, data.iceServers.map(s => s.urls).flat())
+      return data.iceServers
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.warn('[WebRTC] Timeout récupération TURN credentials — fallback STUN')
+      } else {
+        console.warn('[WebRTC] Erreur récupération TURN credentials:', msg, '— fallback STUN')
+      }
+      return DEFAULT_ICE_SERVERS
+    }
+  }
+
+  /**
+   * Invalide le cache des credentials TURN (ex : après un échec de connexion).
+   * Le prochain appel forcera un nouveau fetch depuis l'API.
+   */
+  static invalidateTurnCache(): void {
+    _turnCache = null
+    console.log('[WebRTC] Cache TURN invalidé')
+  }
+
   // ── Initialisation ──────────────────────────────────────────────────────
 
   /**
    * Initialise le service pour un utilisateur connecté.
    * À appeler dans useEffect une seule fois par session.
    * Lance l'écoute des appels entrants via Supabase Realtime.
+   * Précharge les credentials TURN en arrière-plan pour un démarrage rapide.
    */
   async init(userId: string, handlers: Partial<CallHandlers>): Promise<void> {
     this.currentUserId = userId
     this.handlers = handlers
     await this.listenForIncomingCalls(userId)
+
+    // Précharger les credentials TURN en arrière-plan
+    // (ne bloque pas l'init, améliore la latence au premier appel)
+    this.getTurnIceServers().catch(err => {
+      console.warn('[WebRTC] Préchargement TURN échoué:', err)
+    })
   }
 
   /**
@@ -161,6 +259,7 @@ class WebRTCCallService {
   /**
    * Initie un appel audio vers un destinataire.
    * Crée la ligne dans calls_webrtc et envoie l'offre SDP.
+   * Utilise les credentials TURN Cloudflare pour la traversée NAT.
    *
    * @returns L'ID de l'appel créé ou null en cas d'échec
    */
@@ -171,6 +270,9 @@ class WebRTCCallService {
     livraisonId?:    string
   }): Promise<string | null> {
     try {
+      // Récupérer les credentials TURN Cloudflare
+      const iceServers = await this.getTurnIceServers()
+
       // Demander accès micro
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -181,8 +283,11 @@ class WebRTCCallService {
         video: false,
       })
 
-      // Créer la connexion WebRTC
-      this.peerConnection = new RTCPeerConnection(RTC_CONFIG)
+      // Créer la connexion WebRTC avec les credentials TURN Cloudflare
+      this.peerConnection = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+      })
       this.setupPeerConnectionHandlers()
 
       // Ajouter les pistes audio locales
@@ -251,9 +356,13 @@ class WebRTCCallService {
   /**
    * Accepte un appel entrant.
    * Récupère l'offre SDP, crée une réponse et met à jour Supabase.
+   * Utilise les credentials TURN Cloudflare pour la traversée NAT.
    */
   async acceptCall(callId: string): Promise<boolean> {
     try {
+      // Récupérer les credentials TURN Cloudflare
+      const iceServers = await this.getTurnIceServers()
+
       // Récupérer l'offre depuis Supabase
       const { data: callData, error } = await supabase
         .from('calls_webrtc')
@@ -276,8 +385,11 @@ class WebRTCCallService {
         video: false,
       })
 
-      // Créer la connexion WebRTC
-      this.peerConnection = new RTCPeerConnection(RTC_CONFIG)
+      // Créer la connexion WebRTC avec les credentials TURN Cloudflare
+      this.peerConnection = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+      })
       this.setupPeerConnectionHandlers()
 
       // Ajouter les pistes audio locales
@@ -456,8 +568,13 @@ class WebRTCCallService {
     this.peerConnection.oniceconnectionstatechange = () => {
       const state = this.peerConnection?.iceConnectionState
       console.log('[WebRTC] ICE state:', state)
-      if (state === 'failed' || state === 'disconnected') {
+      if (state === 'failed') {
+        // Invalider le cache TURN et signaler l'erreur
+        WebRTCCallService.invalidateTurnCache()
         this.handlers.onError?.('Connexion perdue. Vérifiez votre réseau.')
+      }
+      if (state === 'disconnected') {
+        this.handlers.onError?.('Connexion instable. Vérifiez votre réseau.')
       }
       if (state === 'closed') {
         this.cleanup()
@@ -469,9 +586,10 @@ class WebRTCCallService {
       const state = this.peerConnection?.connectionState
       console.log('[WebRTC] Connection state:', state)
       if (state === 'connected') {
-        console.log('[WebRTC] ✅ Appel connecté !')
+        console.log('[WebRTC] ✅ Appel connecté via Cloudflare TURN !')
       }
       if (state === 'failed') {
+        WebRTCCallService.invalidateTurnCache()
         this.handlers.onError?.('Impossible d\'établir la connexion audio.')
       }
     }
