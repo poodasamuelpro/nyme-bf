@@ -1,29 +1,16 @@
 // src/app/api/admin/update-partenaire-statut/route.ts
-// Met à jour le statut d'un partenaire (actif / suspendu / rejete / en_attente) 
+// Met à jour le statut d'un partenaire (actif / suspendu / rejete / en_attente)
 // Admin seulement
-
-import { NextResponse } from 'next/server'
+// CORRECTION AUDIT : vérification inline → verifyAdminRole (middleware centralisé)
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { createClient } from '@supabase/supabase-js'
+import { verifyAdminRole } from '@/lib/auth-middleware'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // Auth admin
-    const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim()
-    if (!token) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-
-    const supabaseCheck = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-    const { data: { user: caller } } = await supabaseCheck.auth.getUser(token)
-    if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
-    const { data: callerRow } = await supabaseAdmin
-      .from('utilisateurs').select('role').eq('id', caller.id).single()
-    if (callerRow?.role !== 'admin') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+    // ── Authentification centralisée ─────────────────────────────
+    const auth = await verifyAdminRole(req)
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
 
     const { partenaire_id, statut } = await req.json()
 
@@ -47,7 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: updErr.message }, { status: 400 })
     }
 
-    // Notifier le partenaire
+    // Notifier le partenaire (in-app)
     try {
       const messageMap: Record<string, string> = {
         actif:      '🎉 Votre compte partenaire est maintenant actif ! Vous pouvez commencer à utiliser nos services.',
@@ -63,12 +50,12 @@ export async function POST(req: Request) {
         lu:         false,
         created_at: new Date().toISOString(),
       })
-    } catch {}
+    } catch { /* notification non bloquante */ }
 
     return NextResponse.json({ success: true, partenaire: data })
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[update-partenaire-statut]', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Erreur serveur' }, { status: 500 })
   }
 }
