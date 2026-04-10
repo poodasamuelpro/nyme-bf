@@ -33,7 +33,7 @@ export default function ContactClient() {
   return (
     <div className="min-h-screen bg-nyme-bg pt-20 sm:pt-28 pb-16">
 
-      {/* ── Hero ── */}
+      {/* ── Hero — fond sombre ── */}
       <div className="section-hero relative overflow-hidden py-12 sm:py-16 mb-10 sm:mb-14">
         <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="relative max-w-3xl mx-auto px-4 text-center">
@@ -59,6 +59,7 @@ export default function ContactClient() {
         </div>
       </div>
 
+      {/* ── Contenu principal — fond clair (bg-nyme-bg = #F8FAFF) ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── Cards mobiles 2×2 ── */}
@@ -67,9 +68,10 @@ export default function ContactClient() {
             <a key={title} href={href} className={`card border-l-4 ${accent} p-3 sm:p-4 flex items-start gap-2.5 hover:scale-[1.02] transition-transform`}>
               <Icon size={15} className="text-nyme-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <div className="text-nyme-text-muted text-[9px] sm:text-xs uppercase tracking-wider mb-0.5 font-body font-semibold">{title}</div>
-                <div className="text-nyme-text font-bold text-[11px] sm:text-xs truncate font-body">{content}</div>
-                <div className="text-nyme-text-muted text-[9px] sm:text-xs font-body">{sub}</div>
+                {/* FIX : couleurs explicites sur fond blanc */}
+                <div className="text-[9px] sm:text-xs uppercase tracking-wider mb-0.5 font-body font-semibold" style={{ color: 'var(--nyme-text-muted)' }}>{title}</div>
+                <div className="font-bold text-[11px] sm:text-xs truncate font-body" style={{ color: 'var(--nyme-text)' }}>{content}</div>
+                <div className="text-[9px] sm:text-xs font-body" style={{ color: 'var(--nyme-text-muted)' }}>{sub}</div>
               </div>
             </a>
           ))}
@@ -85,17 +87,18 @@ export default function ContactClient() {
                   <Icon size={16} className="text-nyme-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-nyme-text-muted text-xs uppercase tracking-wider mb-0.5 font-body font-semibold">{title}</div>
-                  <div className="text-nyme-text font-bold text-sm font-body">{content}</div>
-                  <div className="text-nyme-text-muted text-xs font-body">{sub}</div>
+                  {/* FIX : couleurs explicites sur fond blanc */}
+                  <div className="text-xs uppercase tracking-wider mb-0.5 font-body font-semibold" style={{ color: 'var(--nyme-text-muted)' }}>{title}</div>
+                  <div className="font-bold text-sm font-body" style={{ color: 'var(--nyme-text)' }}>{content}</div>
+                  <div className="text-xs font-body" style={{ color: 'var(--nyme-text-muted)' }}>{sub}</div>
                 </div>
-                <ChevronRight size={14} className="text-nyme-border ml-auto mt-1 shrink-0" />
+                <ChevronRight size={14} className="ml-auto mt-1 shrink-0" style={{ color: 'var(--nyme-border)' }} />
               </a>
             ))}
 
             <div id="partenaires" className="card p-5 border-t-4 border-t-nyme-orange">
-              <h3 className="font-heading text-nyme-text font-bold mb-2 text-base">⭐ Partenariats</h3>
-              <p className="text-nyme-text-muted text-sm leading-relaxed mb-3 font-body">
+              <h3 className="font-heading font-bold mb-2 text-base" style={{ color: 'var(--nyme-text)' }}>⭐ Partenariats</h3>
+              <p className="text-sm leading-relaxed mb-3 font-body" style={{ color: 'var(--nyme-text-muted)' }}>
                 Boutique ou entreprise à Ouagadougou ? Intégrez NYME dans votre logistique avec un abonnement mensuel.
               </p>
               <a href="/partenaires" className="text-nyme-orange text-sm font-bold hover:underline font-body">
@@ -110,10 +113,10 @@ export default function ContactClient() {
               {sent ? (
                 <div className="text-center py-10 sm:py-14">
                   <div className="text-5xl mb-4">✅</div>
-                  <h2 className="font-heading text-xl sm:text-2xl font-bold text-nyme-text mb-2">Message envoyé !</h2>
-                  <p className="text-nyme-text-muted text-sm font-body">
+                  <h2 className="font-heading text-xl sm:text-2xl font-bold mb-2" style={{ color: 'var(--nyme-text)' }}>Message envoyé !</h2>
+                  <p className="text-sm font-body" style={{ color: 'var(--nyme-text-muted)' }}>
                     Merci. L'équipe NYME vous répondra sous 24h à{' '}
-                    <strong className="text-nyme-primary">nyme.contact@gmail.com</strong>.
+                    <strong style={{ color: 'var(--nyme-primary)' }}>nyme.contact@gmail.com</strong>.
                   </p>
                   <div className="flex flex-col sm:flex-row justify-center gap-3 mt-6">
                     <button
@@ -133,8 +136,8 @@ export default function ContactClient() {
                 </div>
               ) : (
                 <>
-                  <h2 className="font-heading text-xl sm:text-2xl font-black text-nyme-text mb-1">Envoyer un message</h2>
-                  <p className="text-nyme-text-muted text-sm mb-5 sm:mb-6 font-body">
+                  <h2 className="font-heading text-xl sm:text-2xl font-black mb-1" style={{ color: 'var(--nyme-text)' }}>Envoyer un message</h2>
+                  <p className="text-sm mb-5 sm:mb-6 font-body" style={{ color: 'var(--nyme-text-muted)' }}>
                     Ou écrivez directement à{' '}
                     <a href="mailto:nyme.contact@gmail.com" className="text-nyme-orange font-semibold hover:underline">
                       nyme.contact@gmail.com
@@ -144,16 +147,16 @@ export default function ContactClient() {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-nyme-text-muted text-xs uppercase tracking-wider font-semibold mb-1.5 font-body">Nom complet *</label>
+                        <label className="block text-xs uppercase tracking-wider font-semibold mb-1.5 font-body" style={{ color: 'var(--nyme-text-muted)' }}>Nom complet *</label>
                         <input type="text" required value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} placeholder="Votre nom" className="input-nyme" />
                       </div>
                       <div>
-                        <label className="block text-nyme-text-muted text-xs uppercase tracking-wider font-semibold mb-1.5 font-body">Email *</label>
+                        <label className="block text-xs uppercase tracking-wider font-semibold mb-1.5 font-body" style={{ color: 'var(--nyme-text-muted)' }}>Email *</label>
                         <input type="email" required value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="votre@email.com" className="input-nyme" />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-nyme-text-muted text-xs uppercase tracking-wider font-semibold mb-1.5 font-body">Sujet *</label>
+                      <label className="block text-xs uppercase tracking-wider font-semibold mb-1.5 font-body" style={{ color: 'var(--nyme-text-muted)' }}>Sujet *</label>
                       <select required value={form.sujet} onChange={e => setForm({...form, sujet: e.target.value})} className="input-nyme">
                         <option value="">Choisir un sujet</option>
                         <option value="support">Support technique</option>
@@ -165,7 +168,7 @@ export default function ContactClient() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-nyme-text-muted text-xs uppercase tracking-wider font-semibold mb-1.5 font-body">Message *</label>
+                      <label className="block text-xs uppercase tracking-wider font-semibold mb-1.5 font-body" style={{ color: 'var(--nyme-text-muted)' }}>Message *</label>
                       <textarea required rows={5} value={form.message} onChange={e => setForm({...form, message: e.target.value})}
                         placeholder="Décrivez votre demande en détail..." className="input-nyme resize-none" />
                     </div>
