@@ -6,6 +6,7 @@
 //   2. Conservation intégrale de toute la logique existante (commissions,
 //      transitions, notifications FCM, wallet cash).
 //   3. Le champ 'preuve_livraison_url' est optionnel mais recommandé.
+//   4. Limite fichier preuve : 4MB (alignée sur le bucket Supabase Storage)
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,6 +27,9 @@ const STATUS_MESSAGES: Record<string, string> = {
 }
 
 const NYME_ADMIN_USER_ID = process.env.NYME_ADMIN_USER_ID || null
+
+// Limite alignée sur le bucket Supabase Storage (4MB)
+const PREUVE_MAX_SIZE_BYTES = 4 * 1024 * 1024 // 4 194 304 bytes
 
 export async function POST(req: NextRequest) {
   try {
@@ -115,8 +119,8 @@ export async function POST(req: NextRequest) {
       // ── Upload preuve de livraison (optionnelle) ─────────────────────
       if (preuveFile && preuveFile.size > 0) {
         try {
-          if (preuveFile.size > 10 * 1024 * 1024) {
-            console.warn('[statut] Preuve livraison trop grande (max 10MB) — ignorée')
+          if (preuveFile.size > PREUVE_MAX_SIZE_BYTES) {
+            console.warn(`[statut] Preuve livraison trop grande (${preuveFile.size} bytes, max ${PREUVE_MAX_SIZE_BYTES} bytes / 4MB) — ignorée`)
           } else {
             const ext  = preuveFile.name.split('.').pop() || 'jpg'
             const path = `preuves-livraison/${livraison_id}/${coursier_id}_${Date.now()}.${ext}`
