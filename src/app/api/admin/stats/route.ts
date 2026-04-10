@@ -3,25 +3,16 @@
 // STATISTIQUES ADMIN — NYME
 // GET /api/admin/stats
 // Retourne les KPIs principaux pour le dashboard admin
+// CORRECTION AUDIT : verifyAdmin inline → verifyAdminRole (middleware centralisé)
 // ══════════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { createClient } from '@supabase/supabase-js'
-
-async function verifyAdmin(req: NextRequest): Promise<{ ok: boolean; error?: string }> {
-  const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim()
-  if (!token) return { ok: false, error: 'Token manquant' }
-  const supabaseCheck = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-  const { data: { user } } = await supabaseCheck.auth.getUser(token)
-  if (!user) return { ok: false, error: 'Non authentifié' }
-  const { data } = await supabaseAdmin.from('utilisateurs').select('role').eq('id', user.id).single()
-  if (data?.role !== 'admin') return { ok: false, error: 'Accès refusé' }
-  return { ok: true }
-}
+import { verifyAdminRole } from '@/lib/auth-middleware'
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await verifyAdmin(req)
+    // ── Authentification centralisée ─────────────────────────────
+    const auth = await verifyAdminRole(req)
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 })
 
     const now  = new Date()
