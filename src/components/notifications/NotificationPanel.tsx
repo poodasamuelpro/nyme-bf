@@ -3,7 +3,7 @@
 // Usage : <NotificationPanel userId={userId} role="client" />
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Link from 'link'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { Notification } from '@/lib/supabase'
 import { Bell, Check, CheckCheck, X, ExternalLink } from 'lucide-react'
