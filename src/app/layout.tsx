@@ -1,4 +1,4 @@
-// src/app/layout.tsx
+// src/app/layout.tsx 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODIFICATION : Ajout du CallProvider pour les appels WebRTC globaux.
 // Le CallProvider écoute les appels entrants pour TOUS les utilisateurs
