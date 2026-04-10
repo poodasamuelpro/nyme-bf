@@ -1,8 +1,11 @@
 // src/app/partenaires/dashboard/page.tsx — Dashboard partenaire NYME v3
 // ✅ Vrais prix (25k/65k/devis) | ✅ Abonnement mensuel wallet | ✅ Pas de commission UI
 // ✅ Carte temps réel | ✅ Design app livraison production-grade
+// MODIFICATION AUDIT : Suivi temps réel positions coursiers via localisation_coursier
+//   + subscription postgres_changes sur livraisons_partenaire et localisation_coursier
+//   + rafraîchissement positions toutes les 5s (polling léger) + subscription Supabase Realtime
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -76,10 +79,10 @@ const PLAN_CFG = {
 }
 
 const STATUT_CFG: Record<string, { label: string; color: string; bg: string; dot: string; icon: string }> = {
-  en_attente: { label: 'En attente', color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',   dot: 'bg-amber-400',  icon: '⏳' },
-  en_cours:   { label: 'En livraison', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200',     dot: 'bg-blue-500',   icon: '🚴' },
-  livre:      { label: 'Livré',        color: 'text-green-700', bg: 'bg-green-50 border-green-200',  dot: 'bg-green-500',  icon: '✅' },
-  annule:     { label: 'Annulé',       color: 'text-red-700',   bg: 'bg-red-50 border-red-200',      dot: 'bg-red-400',    icon: '❌' },
+  en_attente: { label: 'En attente',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-400',  icon: '⏳' },
+  en_cours:   { label: 'En livraison', color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200',    dot: 'bg-blue-500',   icon: '🚴' },
+  livre:      { label: 'Livré',        color: 'text-green-700',  bg: 'bg-green-50 border-green-200',  dot: 'bg-green-500',  icon: '✅' },
+  annule:     { label: 'Annulé',       color: 'text-red-700',    bg: 'bg-red-50 border-red-200',      dot: 'bg-red-400',    icon: '❌' },
 }
 
 const TABS = [
@@ -146,6 +149,7 @@ export default function PartenaireDashboard() {
   const [soldeWallet, setSoldeWallet] = useState(0)
   const [txWallet,    setTxWallet]    = useState<any[]>([])
   const [coursierFavori, setCoursierFavori] = useState<CoursierActif | null>(null)
+  const coursierPositionsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map())
   const [editingProfil, setEditingProfil] = useState(false)
   const [profilForm, setProfilForm] = useState({ entreprise: '', nom_contact: '', telephone: '', email_pro: '', adresse: '' })
   const [savingProfil, setSavingProfil] = useState(false)
@@ -167,7 +171,28 @@ export default function PartenaireDashboard() {
   const [contactForm, setContactForm] = useState({ nom: '', telephone: '', whatsapp: '', adresse_habituelle: '' })
   const [savingContact, setSavingContact] = useState(false)
 
-  // ── Chargement ─────────────────────────────────────────────────
+  // ── Rafraîchissement positions coursiers uniquement (léger) ──────
+  const refreshCoursierPositions = useCallback(async () => {
+    try {
+      const { data: posData } = await supabase
+        .from('localisation_coursier')
+        .select('coursier_id, lat, lng, statut, vitesse, direction, updated_at')
+        .in('statut', ['disponible', 'occupe'])
+
+      if (posData && posData.length > 0) {
+        posData.forEach((p: { coursier_id: string; lat: number; lng: number }) => {
+          coursierPositionsRef.current.set(p.coursier_id, { lat: p.lat, lng: p.lng })
+        })
+        setCoursiers(prev => prev.map(c => {
+          const pos = coursierPositionsRef.current.get(c.id)
+          if (pos) return { ...c, lat_actuelle: pos.lat, lng_actuelle: pos.lng }
+          return c
+        }))
+      }
+    } catch (posErr) {
+      console.debug('[dashboard partenaire] Positions refresh (fallback):', posErr)
+    }
+  }, [])
 
   const loadData = useCallback(async (uid: string) => {
     try {
@@ -256,14 +281,48 @@ export default function PartenaireDashboard() {
       setUserId(session.user.id)
       await loadData(session.user.id)
 
-      const channel = supabase.channel('partenaire-rt')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'livraisons_partenaire' }, () => {
+      const channelLivraisons = supabase.channel('partenaire-rt-livraisons')
+        .on('postgres_changes', {
+          event:  '*',
+          schema: 'public',
+          table:  'livraisons_partenaire',
+        }, () => {
           if (session.user.id) loadData(session.user.id)
         }).subscribe()
+
+      const channelPositions = supabase.channel('partenaire-rt-positions')
+        .on('postgres_changes', {
+          event:  '*',
+          schema: 'public',
+          table:  'localisation_coursier',
+        }, (payload) => {
+          const record = payload.new as { coursier_id?: string; lat?: number; lng?: number; statut?: string }
+          if (record?.coursier_id && record?.lat && record?.lng) {
+            coursierPositionsRef.current.set(record.coursier_id, {
+              lat: record.lat,
+              lng: record.lng,
+            })
+            setCoursiers(prev => prev.map(c =>
+              c.id === record.coursier_id
+                ? { ...c, lat_actuelle: record.lat!, lng_actuelle: record.lng!, statut: record.statut || c.statut }
+                : c
+            ))
+          }
+        }).subscribe()
+
+      const pollingInterval = setInterval(() => {
+        refreshCoursierPositions()
+      }, 5000)
+
       const { data: auth } = supabase.auth.onAuthStateChange(ev => {
         if (ev === 'SIGNED_OUT') router.replace('/partenaires/login')
       })
-      return () => { supabase.removeChannel(channel); auth.subscription.unsubscribe() }
+      return () => {
+        supabase.removeChannel(channelLivraisons)
+        supabase.removeChannel(channelPositions)
+        clearInterval(pollingInterval)
+        auth.subscription.unsubscribe()
+      }
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -429,7 +488,6 @@ export default function PartenaireDashboard() {
     txSucces:  livraisons.length > 0 ? Math.round(livraisons.filter(l => l.statut === 'livre').length / livraisons.length * 100) : 0,
   }
 
-  // Sparkline : livraisons par jour sur les 7 derniers jours
   const spark7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i))
     const ds = d.toISOString().split('T')[0]
@@ -453,7 +511,6 @@ export default function PartenaireDashboard() {
 
   const inp = 'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all bg-white placeholder-gray-400'
 
-  // ── Plan — déclaré AVANT tout return conditionnel ──────────────
   const plan = partenaire ? PLAN_CFG[partenaire.plan] : null
 
   // ── Loading ─────────────────────────────────────────────────────
@@ -479,7 +536,6 @@ export default function PartenaireDashboard() {
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
 
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-sm shadow-orange-200">
               <Zap size={15} className="text-white" strokeWidth={2.5} />
@@ -488,7 +544,6 @@ export default function PartenaireDashboard() {
             <span className="text-gray-300 text-xs hidden sm:block">/ Partenaires</span>
           </Link>
 
-          {/* Actions */}
           <div className="flex items-center gap-1.5">
             {alertes.length > 0 && (
               <button onClick={() => setShowNotifPanel(!showNotifPanel)}
@@ -504,7 +559,6 @@ export default function PartenaireDashboard() {
               <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
-            {/* Profil chip */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100">
               <div className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-[10px] font-black">
                 {partenaire?.nom_contact?.charAt(0) || '?'}
@@ -576,7 +630,6 @@ export default function PartenaireDashboard() {
         {tab === 'dashboard' && (
           <div className="space-y-4">
 
-            {/* Hero salutation */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-xl font-black text-gray-900">
@@ -640,22 +693,10 @@ export default function PartenaireDashboard() {
             {/* Stats cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                {
-                  icon: Package, label: 'Total', value: stats.total, sub: '7 jours',
-                  color: 'bg-blue-500', spark: spark7, sparkColor: '#3b82f6',
-                },
-                {
-                  icon: CheckCircle, label: 'Livrées', value: stats.livrees, sub: `${stats.txSucces}% succès`,
-                  color: 'bg-green-500', spark: null, sparkColor: '#22c55e',
-                },
-                {
-                  icon: Bike, label: 'En livraison', value: stats.enCours, sub: 'maintenant',
-                  color: stats.enCours > 0 ? 'bg-orange-500' : 'bg-gray-400', spark: null, sparkColor: '#f97316',
-                },
-                {
-                  icon: Clock, label: 'En attente', value: stats.enAttente, sub: 'à traiter',
-                  color: 'bg-violet-500', spark: null, sparkColor: '#8b5cf6',
-                },
+                { icon: Package,     label: 'Total',        value: stats.total,     sub: '7 jours',        color: 'bg-blue-500',   spark: spark7,       sparkColor: '#3b82f6' },
+                { icon: CheckCircle, label: 'Livrées',      value: stats.livrees,   sub: `${stats.txSucces}% succès`, color: 'bg-green-500',  spark: null,         sparkColor: '#22c55e' },
+                { icon: Bike,        label: 'En livraison', value: stats.enCours,   sub: 'maintenant',     color: stats.enCours > 0 ? 'bg-orange-500' : 'bg-gray-400', spark: null, sparkColor: '#f97316' },
+                { icon: Clock,       label: 'En attente',   value: stats.enAttente, sub: 'à traiter',      color: 'bg-violet-500', spark: null,         sparkColor: '#8b5cf6' },
               ].map(s => (
                 <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
                   <div className="flex items-start justify-between">
@@ -673,7 +714,7 @@ export default function PartenaireDashboard() {
               ))}
             </div>
 
-            {/* Livraisons EN COURS — prominent si elles existent */}
+            {/* Livraisons EN COURS */}
             {stats.enCours > 0 && (
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-4 text-white">
                 <div className="flex items-center justify-between mb-3">
@@ -794,7 +835,6 @@ export default function PartenaireDashboard() {
               </button>
             </div>
 
-            {/* Recherche + filtres */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -814,7 +854,6 @@ export default function PartenaireDashboard() {
               </div>
             </div>
 
-            {/* Liste */}
             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
               {livraisonsFiltrees.length === 0 ? (
                 <div className="p-12 text-center">
@@ -886,7 +925,6 @@ export default function PartenaireDashboard() {
                   </div>
                 </div>
 
-                {/* Sélection contact rapide */}
                 {contacts.length > 0 && (
                   <div>
                     <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Contact rapide</p>
@@ -1113,7 +1151,6 @@ export default function PartenaireDashboard() {
               </div>
             </div>
 
-            {/* Légende */}
             <div className="bg-white rounded-2xl p-3 border border-gray-100 flex flex-wrap gap-4 text-xs">
               <span className="flex items-center gap-2 font-semibold text-gray-600">
                 <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
@@ -1129,7 +1166,6 @@ export default function PartenaireDashboard() {
               </span>
             </div>
 
-            {/* Carte */}
             <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
               <MapAdvanced
                 coursier={coursiers.find(c => c.lat_actuelle && c.lng_actuelle) ? {
@@ -1140,7 +1176,6 @@ export default function PartenaireDashboard() {
               />
             </div>
 
-            {/* Liste coursiers */}
             {coursiers.length > 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                 <div className="p-4 border-b border-gray-50">
@@ -1175,12 +1210,9 @@ export default function PartenaireDashboard() {
           <div className="space-y-4">
             <h2 className="text-lg font-black text-gray-900">Wallet & Abonnement</h2>
 
-            {/* Carte solde */}
             <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-              {/* Déco */}
               <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-white/5" />
               <div className="absolute -right-3 -bottom-10 w-52 h-52 rounded-full bg-white/[0.03]" />
-
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-5">
                   <div>
@@ -1194,8 +1226,6 @@ export default function PartenaireDashboard() {
                     <Wallet size={20} className="text-white" />
                   </div>
                 </div>
-
-                {/* Plan actuel */}
                 {partenaire && plan && (
                   <div className="bg-white/10 rounded-xl p-3 flex items-center justify-between">
                     <div>
@@ -1213,13 +1243,11 @@ export default function PartenaireDashboard() {
               </div>
             </div>
 
-            {/* Renouveler abonnement */}
             {partenaire && plan && (
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
                 <h3 className="font-black text-gray-900 flex items-center gap-2">
                   <CreditCard size={15} className="text-orange-500" />Renouveler l'abonnement mensuel
                 </h3>
-
                 <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-gray-900">{plan.emoji} Plan {plan.label}</p>
@@ -1232,13 +1260,10 @@ export default function PartenaireDashboard() {
                     {plan.prix > 0 && <span className="text-sm text-gray-400 font-normal"> FCFA</span>}
                   </p>
                 </div>
-
                 {plan.prix > 0 ? (
                   <>
                     <div className={`rounded-xl p-3 text-sm flex items-center gap-2 ${
-                      soldeWallet >= plan.prix
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-red-50 text-red-600'}`}>
+                      soldeWallet >= plan.prix ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                       {soldeWallet >= plan.prix ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
                       {soldeWallet >= plan.prix
                         ? `Solde suffisant — il restera ${(soldeWallet - plan.prix).toLocaleString('fr-FR')} FCFA`
@@ -1276,9 +1301,7 @@ export default function PartenaireDashboard() {
                     <p className="text-orange-600 font-black text-sm mt-1">
                       {cfg.prix === 0 ? 'Devis' : `${(cfg.prix / 1000).toFixed(0)}k`}
                     </p>
-                    <p className="text-gray-400 text-[10px]">
-                      {cfg.prix > 0 ? 'FCFA/mois' : 'FCFA/mois'}
-                    </p>
+                    <p className="text-gray-400 text-[10px]">FCFA/mois</p>
                     <p className="text-gray-500 text-[10px] mt-1">
                       {cfg.max < 9999 ? `${cfg.max} livr.` : '∞ livr.'}
                     </p>
@@ -1330,7 +1353,6 @@ export default function PartenaireDashboard() {
           <div className="space-y-4">
             <h2 className="text-lg font-black text-gray-900">Mon compte</h2>
 
-            {/* Profil */}
             {!editingProfil ? (
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-4 mb-5 pb-4 border-b border-gray-50">
@@ -1368,11 +1390,11 @@ export default function PartenaireDashboard() {
                 <h3 className="font-black text-gray-900">Modifier le profil</h3>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {[
-                    { key: 'entreprise', label: 'Nom entreprise *', type: 'text', ph: 'Votre entreprise' },
-                    { key: 'nom_contact', label: 'Nom contact *', type: 'text', ph: 'Votre nom' },
-                    { key: 'telephone', label: 'Téléphone', type: 'tel', ph: '+226 XX XX XX XX' },
-                    { key: 'email_pro', label: 'Email pro', type: 'email', ph: 'contact@entreprise.com' },
-                    { key: 'adresse', label: 'Adresse', type: 'text', ph: 'Adresse entreprise' },
+                    { key: 'entreprise',  label: 'Nom entreprise *', type: 'text',  ph: 'Votre entreprise' },
+                    { key: 'nom_contact', label: 'Nom contact *',    type: 'text',  ph: 'Votre nom' },
+                    { key: 'telephone',   label: 'Téléphone',        type: 'tel',   ph: '+226 XX XX XX XX' },
+                    { key: 'email_pro',   label: 'Email pro',        type: 'email', ph: 'contact@entreprise.com' },
+                    { key: 'adresse',     label: 'Adresse',          type: 'text',  ph: 'Adresse entreprise' },
                   ].map(f => (
                     <div key={f.key} className={f.key === 'adresse' ? 'sm:col-span-2' : ''}>
                       <label className="block text-xs font-black text-gray-400 uppercase tracking-wider mb-1.5">{f.label}</label>
@@ -1393,7 +1415,6 @@ export default function PartenaireDashboard() {
               </div>
             )}
 
-            {/* Sécurité */}
             <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <h3 className="font-black text-gray-900 mb-3 flex items-center gap-2 text-sm">
                 <ShieldCheck size={14} className="text-orange-500" />Sécurité du compte
@@ -1411,7 +1432,6 @@ export default function PartenaireDashboard() {
               )}
             </div>
 
-            {/* Actions */}
             <div className="grid sm:grid-cols-2 gap-3">
               <a href="mailto:nyme.contact@gmail.com"
                 className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 hover:border-orange-200 transition-all shadow-sm">
@@ -1465,7 +1485,6 @@ export default function PartenaireDashboard() {
             </div>
             <div className="p-5 space-y-4">
 
-              {/* Mini carte si coords dispo */}
               {detail.lat_depart && detail.lng_depart && detail.lat_arrivee && detail.lng_arrivee && (
                 <div className="h-44 rounded-xl overflow-hidden border border-gray-100">
                   <MapAdvanced
@@ -1475,7 +1494,6 @@ export default function PartenaireDashboard() {
                 </div>
               )}
 
-              {/* Trajet visuel */}
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
@@ -1498,7 +1516,6 @@ export default function PartenaireDashboard() {
                 </div>
               </div>
 
-              {/* Infos */}
               {[
                 ['👤 Destinataire', detail.destinataire_nom || '—'],
                 ['💰 Prix', detail.prix ? fXOF(detail.prix) : 'Inclus dans votre abonnement'],
