@@ -1,27 +1,20 @@
-// src/app/api/admin/payer-coursier/route.ts
-// CORRECTION : p_description → p_note (nom exact du paramètre SQL)
-// Paiement d'un coursier — crédite son wallet via process_wallet_transaction
-import { NextResponse } from 'next/server'
+// src/app/api/admin/payer-coursier/route.ts — MODIFIÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// CORRECTIONS AUDIT :
+//   1. Remplacement de la vérification admin inline par verifyAdminRole()
+//      centralisé (src/lib/auth-middleware.ts) — cohérence avec les autres routes
+//   2. Conservation de toute la logique métier (wallet, notif, total_gains)
+// ═══════════════════════════════════════════════════════════════════════════
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { createClient } from '@supabase/supabase-js'
+import { verifyAdminRole } from '@/lib/auth-middleware'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // 1. Vérifier l'authentification admin
-    const token = (req.headers.get('authorization') || '').replace('Bearer ', '').trim()
-    if (!token) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-
-    const supabaseCheck = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-    const { data: { user: caller } } = await supabaseCheck.auth.getUser(token)
-    if (!caller) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
-    const { data: callerRow } = await supabaseAdmin
-      .from('utilisateurs').select('role').eq('id', caller.id).single()
-    if (callerRow?.role !== 'admin') {
-      return NextResponse.json({ error: 'Accès refusé — rôle admin requis' }, { status: 403 })
+    // 1. Vérifier l'authentification admin via middleware centralisé
+    const auth = await verifyAdminRole(req)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: 401 })
     }
 
     // 2. Parser le body
@@ -72,7 +65,7 @@ export async function POST(req: Request) {
       type:       'paiement',
       titre:      '💰 Paiement reçu',
       message:    `Vous avez reçu ${Number(montant).toLocaleString('fr-FR')} FCFA. ${description || ''}`.trim(),
-      data:       { montant, admin_id: caller.id },
+      data:       { montant, admin_id: auth.adminId },
       lu:         false,
       created_at: new Date().toISOString(),
     })
