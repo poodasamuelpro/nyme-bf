@@ -1,19 +1,19 @@
-// src/app/layout.tsx — MODIFIÉ
+// src/app/layout.tsx
 // ═══════════════════════════════════════════════════════════════════════════
-// CORRECTION AUDIT : Isolation du CallProvider
-//   Avant : CallProvider s'initialisait sur TOUTES les pages (y compris /)
-//   Après : CallProvider ne s'active QUE si une session auth est détectée.
-//           Les pages publiques (/, /contact, /partenaires landing) sont
-//           exclues du chargement WebRTC inutile.
+// MODIFICATION : Header et Footer masqués sur les pages privées (dashboards)
 //
-//   Solution : ConditionalCallProvider — vérifie la session avant d'init.
-//   Le WebRTC n'est initialisé que lorsqu'un utilisateur est connecté.
+//   - Pages publiques (/, /partenaires, /contact, /cgv, /politique*, etc.)
+//     → Header + Footer affichés normalement
+//
+//   - Pages privées (client/*, coursier/dashboard*, admin/*, partenaires/dashboard)
+//     → Header et Footer masqués — ConditionalLayout gère la logique
+//
+//   - ConditionalCallProvider : WebRTC actif uniquement si session auth détectée
 // ═══════════════════════════════════════════════════════════════════════════
 import type { Metadata } from 'next'
 import './globals.css'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 import ConditionalCallProvider from '@/components/calls/ConditionalCallProvider'
+import ConditionalLayout from '@/components/ConditionalLayout'
 import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
@@ -60,16 +60,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-body bg-nyme-dark text-white antialiased">
         {/*
-          ConditionalCallProvider remplace CallProvider direct.
-          - Vérifie la session Supabase au montage
-          - N'initialise WebRTC QUE si un utilisateur est connecté
-          - Pages publiques (/, /contact, etc.) : aucun WebRTC chargé
-          - Pages dashboard (client/coursier/admin) : WebRTC actif
+          ConditionalCallProvider : initialise WebRTC uniquement si l'utilisateur
+          est connecté. Les pages publiques (/, /contact, /partenaires landing)
+          ne chargent pas WebRTC inutilement.
+
+          ConditionalLayout : affiche Header/Footer uniquement sur les pages
+          publiques. Les dashboards et pages privées (client, coursier, admin,
+          partenaires/dashboard) ne voient plus Header ni Footer.
         */}
         <ConditionalCallProvider>
-          <Header />
-          <main>{children}</main>
-          <Footer />
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
         </ConditionalCallProvider>
 
         {/* Toast notifications */}
