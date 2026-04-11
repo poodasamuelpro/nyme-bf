@@ -330,8 +330,8 @@ Client NYME                Backend (Next.js)          Cloudflare TURN API
 
 ```env
 # Cloudflare TURN (REQUIS pour les appels audio)
-CLOUDFLARE_TURN_KEY_ID=77f00ae2cb584d4141b0efb842de5425
-CLOUDFLARE_TURN_API_TOKEN=f37a14bdda06836ae03d99c44afcbbb1ea81e8a0f18371b64d6b6745f6950dae
+CLOUDFLARE_TURN_KEY_ID=
+CLOUDFLARE_TURN_API_TOKEN=
 ```
 
 > ⚠️ `CLOUDFLARE_TURN_API_TOKEN` est un **secret** — ne jamais le committer dans le dépôt.
@@ -353,7 +353,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...        # SERVER ONLY
 NEXT_PUBLIC_SITE_URL=https://nyme.bf
 
 # Cloudflare TURN
-CLOUDFLARE_TURN_KEY_ID=77f00ae2cb584d4141b0efb842de5425
+CLOUDFLARE_TURN_KEY_ID=7
 CLOUDFLARE_TURN_API_TOKEN=<secret>
 
 # Paiement (au moins un provider)
