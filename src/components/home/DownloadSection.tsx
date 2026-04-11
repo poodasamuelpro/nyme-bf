@@ -20,7 +20,7 @@ export default function DownloadSection() {
         </h2>
 
         <p className="text-white/70 font-body text-base sm:text-lg mb-6 sm:mb-8 max-w-xl mx-auto px-4">
-          L'application est en cours de développement. Laissez votre email pour être notifié au lancement officiel à Ouagadougou.
+          L'application mobile NYME est en cours de développement final. Laissez votre email pour être parmi les premiers notifiés au lancement officiel à Ouagadougou.
         </p>
 
         {!submitted ? (
@@ -42,11 +42,11 @@ export default function DownloadSection() {
         ) : (
           <div className="mb-8 sm:mb-10 p-4 rounded-2xl glass border border-green-400/35 max-w-md mx-auto">
             <div className="text-3xl mb-2">✅</div>
-            <p className="text-green-400 font-body font-semibold text-sm">Parfait ! Vous serez notifié dès le lancement à Ouagadougou.</p>
+            <p className="text-green-400 font-body font-semibold text-sm">Parfait ! Vous serez parmi les premiers informés du lancement à Ouagadougou.</p>
           </div>
         )}
 
-        {/* Stores désactivés */}
+        {/* Stores — bientôt disponibles */}
         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-8 sm:mb-10 px-4 sm:px-0 opacity-50">
           {[
             { icon: '🤖', store: 'Google Play', sub: 'Bientôt disponible' },
@@ -64,8 +64,8 @@ export default function DownloadSection() {
 
         <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-white/50 text-xs sm:text-sm font-body">
           <span>✓ Téléchargement gratuit</span>
-          <span>✓ Sans abonnement</span>
-          <span>✓ Aucune carte requise</span>
+          <span>✓ Sans abonnement obligatoire</span>
+          <span>✓ Aucune carte bancaire requise</span>
         </div>
       </div>
     </section>
