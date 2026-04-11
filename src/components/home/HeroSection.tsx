@@ -105,14 +105,14 @@ export default function HeroSection() {
             </h1>
 
             <p className="text-white/70 text-base sm:text-lg font-body leading-relaxed mb-6 sm:mb-8 max-w-lg mx-auto lg:mx-0">
-              Envoyez vos colis en quelques secondes. Négociez votre prix, suivez votre coursier en temps réel, payez avec Orange Money, Moov Money ou Wave.
+              Envoyez vos colis en quelques secondes. Négociez votre prix, suivez votre coursier en temps réel, payez avec Orange Money, Moov Money ou Wave. À partir de 800 FCFA seulement.
             </p>
 
             <div className="flex flex-wrap justify-center lg:justify-start gap-2 sm:gap-3 mb-6 sm:mb-8">
               {[
                 { icon: Shield, text: 'Coursiers vérifiés' },
                 { icon: MapPin, text: 'Suivi GPS live' },
-                { icon: Clock,  text: '30 min' },
+                { icon: Clock,  text: '~30 min' },
                 { icon: Star,   text: '4.8★' },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/6 border border-white/12">
@@ -123,7 +123,7 @@ export default function HeroSection() {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-3 sm:gap-4 mb-8 sm:mb-10">
-              <a href="/client/login" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-nyme-orange to-[#d4691a] text-white font-bold text-sm sm:text-base hover:shadow-xl hover:shadow-nyme-orange/35 transition-all duration-300 hover:-translate-y-1 font-body">
+              <a href="/login" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-nyme-orange to-[#d4691a] text-white font-bold text-sm sm:text-base hover:shadow-xl hover:shadow-nyme-orange/35 transition-all duration-300 hover:-translate-y-1 font-body">
                 Commander maintenant <ArrowRight size={16} />
               </a>
               <a href="/coursier/login" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3.5 sm:py-4 rounded-2xl glass border border-white/22 text-white font-semibold text-sm sm:text-base hover:border-nyme-orange/45 transition-all duration-300 font-body">
@@ -139,7 +139,7 @@ export default function HeroSection() {
                 ))}
               </div>
               <div>
-                <div className="text-white font-bold text-xs sm:text-sm font-body">+2 000 utilisateurs</div>
+                <div className="text-white font-bold text-xs sm:text-sm font-body">+2 000 inscrits</div>
                 <div className="text-white/45 text-xs font-body">nous font déjà confiance</div>
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function HeroSection() {
                         </div>
                       </div>
                       <div className="ml-auto text-right">
-                        <div className="text-nyme-orange font-bold text-sm font-heading">3 500</div>
+                        <div className="text-nyme-orange font-bold text-sm font-heading">1 500</div>
                         <div className="text-white/45 text-[9px] font-body">FCFA</div>
                       </div>
                     </div>
@@ -258,7 +258,7 @@ export default function HeroSection() {
                 {/* Prix chip */}
                 <div className="absolute -bottom-3 -left-4 sm:-left-8 glass border border-nyme-blue-light/35 rounded-xl px-3 py-1.5 shadow-xl animate-float" style={{ animationDelay: '-1.5s' }}>
                   <div className="text-white/55 text-[9px] font-body">Prix négocié</div>
-                  <div className="text-nyme-orange font-heading font-bold text-sm">3 500 FCFA</div>
+                  <div className="text-nyme-orange font-heading font-bold text-sm">1 500 FCFA</div>
                 </div>
               </div>
 
