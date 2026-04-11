@@ -1,10 +1,10 @@
 // src/app/partenaires/dashboard/page.tsx — Dashboard partenaire NYME v3
 // ✅ Vrais prix (45k/90k/devis) | ✅ Abonnement mensuel wallet | ✅ Pas de commission UI
 // ✅ Carte temps réel | ✅ Design app livraison production-grade
-// CORRECTIONS :
-//   [FIX-1] coursierPositionsMap : suppression de la variable module-level problématique
-//           → useRef initialisé directement avec new Map<string, CoursierPos>()
-//   [FIX-2] Bug carte : deux .find() séparés pouvaient retourner des coursiers différents
+// CORRECTIONS FINALES :
+//   [FIX-1] Remplacement de Map<string, CoursierPos> par Record<string, CoursierPos>
+//           → useRef<Record<string, CoursierPos>>({}) — zéro problème TS strict Vercel
+//   [FIX-2] Bug carte : un seul .find() pour lat/lng garantis du même coursier
 //   [FIX-3] Cleanup useEffect async — canaux et interval correctement nettoyés
 //   [FIX-4] contacts_favoris : adresse_habituelle sauvegardée dans la bonne colonne
 //   [FIX-5] Suppression import User inutilisé
@@ -47,8 +47,11 @@ interface CoursierActif {
   lng_actuelle: number | null
 }
 
-// [FIX-1] Interface déplacée ici, Map instanciée directement dans useRef — plus de variable module-level
-interface CoursierPos { lat: number; lng: number }
+// [FIX-1] Plain object au lieu de Map — aucun problème avec TS strict
+interface CoursierPos {
+  lat: number
+  lng: number
+}
 
 // ── Config plans ───────────────────────────────────────────────────
 
@@ -173,8 +176,8 @@ export default function PartenaireDashboard() {
   const [contactForm,     setContactForm]     = useState({ nom: '', telephone: '', whatsapp: '', adresse_habituelle: '' })
   const [savingContact,   setSavingContact]   = useState(false)
 
-  // [FIX-1] useRef initialisé directement avec le type explicite — pas de variable module-level
-  const coursierPositionsRef = useRef<Map<string, CoursierPos>>(new Map<string, CoursierPos>())
+  // [FIX-1] Plain object Record au lieu de Map — compatible TS strict sans aucune ambiguïté
+  const coursierPositionsRef = useRef<Record<string, CoursierPos>>({})
 
   // ── Rafraîchissement positions coursiers (polling 5s) ──────────
 
@@ -187,10 +190,10 @@ export default function PartenaireDashboard() {
 
       if (posData && posData.length > 0) {
         posData.forEach((p: { coursier_id: string; lat: number; lng: number }) => {
-          coursierPositionsRef.current.set(p.coursier_id, { lat: p.lat, lng: p.lng })
+          coursierPositionsRef.current[p.coursier_id] = { lat: p.lat, lng: p.lng }
         })
         setCoursiers(prev => prev.map(c => {
-          const pos = coursierPositionsRef.current.get(c.id)
+          const pos = coursierPositionsRef.current[c.id]
           return pos ? { ...c, lat_actuelle: pos.lat, lng_actuelle: pos.lng } : c
         }))
       }
@@ -278,8 +281,7 @@ export default function PartenaireDashboard() {
   // ── Initialisation + Realtime + Cleanup ────────────────────────
 
   useEffect(() => {
-    // [FIX-3] Les refs pour le cleanup sont déclarées en dehors de init()
-    // car init() est async et son return n'est pas utilisé par React.
+    // [FIX-3] Refs déclarées hors de init() pour que le cleanup synchrone fonctionne
     let channelLivraisons: ReturnType<typeof supabase.channel> | null = null
     let channelPositions:  ReturnType<typeof supabase.channel> | null = null
     let pollingInterval:   ReturnType<typeof setInterval> | null = null
@@ -310,7 +312,7 @@ export default function PartenaireDashboard() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'localisation_coursier' }, (payload) => {
           const record = payload.new as { coursier_id?: string; lat?: number; lng?: number; statut?: string }
           if (record?.coursier_id && record?.lat != null && record?.lng != null) {
-            coursierPositionsRef.current.set(record.coursier_id, { lat: record.lat, lng: record.lng })
+            coursierPositionsRef.current[record.coursier_id] = { lat: record.lat, lng: record.lng }
             setCoursiers(prev => prev.map(c =>
               c.id === record.coursier_id
                 ? { ...c, lat_actuelle: record.lat!, lng_actuelle: record.lng!, statut: record.statut || c.statut }
@@ -329,7 +331,6 @@ export default function PartenaireDashboard() {
 
     init()
 
-    // [FIX-3] Cleanup synchrone — React peut l'appeler correctement
     return () => {
       if (channelLivraisons) supabase.removeChannel(channelLivraisons)
       if (channelPositions)  supabase.removeChannel(channelPositions)
@@ -398,11 +399,10 @@ export default function PartenaireDashboard() {
     setSavingContact(true)
     try {
       if (editContact) {
-        // [FIX-4] adresse_habituelle dans la bonne colonne (pas email)
         const { error } = await supabase.from('contacts_favoris').update({
-          nom:               contactForm.nom,
-          telephone:         contactForm.telephone,
-          whatsapp:          contactForm.whatsapp || null,
+          nom:                contactForm.nom,
+          telephone:          contactForm.telephone,
+          whatsapp:           contactForm.whatsapp || null,
           adresse_habituelle: contactForm.adresse_habituelle || null,
         }).eq('id', editContact.id)
         if (error) throw error
@@ -532,8 +532,7 @@ export default function PartenaireDashboard() {
     return matchStatut && matchRech
   })
 
-  // [FIX-2] Un seul .find() pour éviter que lat et lng viennent
-  // de deux coursiers différents quand plusieurs ont une position
+  // [FIX-2] Un seul .find() — lat et lng garantis du même coursier
   const coursierAvecPosition = coursiers.find(c => c.lat_actuelle != null && c.lng_actuelle != null)
 
   const inp = 'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all bg-white placeholder-gray-400'
@@ -797,7 +796,7 @@ export default function PartenaireDashboard() {
               </div>
             )}
 
-            {/* Coursier du mois */}
+            {/* Coursier favori */}
             {coursierFavori && (
               <div className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-sm">
@@ -1321,7 +1320,6 @@ export default function PartenaireDashboard() {
             </div>
 
             <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-              {/* [FIX-2] Un seul .find() — lat et lng garantis du même coursier */}
               <MapAdvanced
                 coursier={
                   coursierAvecPosition
