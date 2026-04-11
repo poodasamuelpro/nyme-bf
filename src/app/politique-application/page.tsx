@@ -36,7 +36,7 @@ NYME se réserve le droit de modifier les présentes CGU à tout moment. En cas 
 • Tableau de bord de gestion des missions reçues
 • Réception et acceptation des demandes de livraison en temps réel
 • Géolocalisation et guidage pour l'exécution des missions
-• Wallet de gestion des gains et demandes de retrait
+• Wallet de gestion des gains et demandes de retrait vers Orange Money, Moov Money ou Wave
 • Messagerie avec les clients
 • Système de notation et de réputation
 
@@ -62,10 +62,10 @@ Pour créer un compte NYME, vous devez :
 
 Pour être activé comme coursier sur NYME, vous devez en plus satisfaire à un processus de vérification obligatoire :
 • Posséder un véhicule en état de marche (moto, vélo ou voiture)
-• Détenir un permis de conduire valide et adapté au type de véhicule utilisé
-• Fournir une pièce d'identité valide (Carte Nationale d'Identité ou passeport)
+• Fournir une pièce d'identité valide (Carte Nationale d'Identité ou passeport) — recto et verso obligatoires
 • Fournir la carte grise du véhicule
 • Soumettre une photo récente du véhicule
+• Le permis de conduire est recommandé mais facultatif selon le type de véhicule utilisé
 
 Votre dossier est examiné manuellement par l'équipe NYME. Aucune mission ne peut être acceptée avant que votre dossier ait été validé et votre compte activé. NYME se réserve le droit de refuser une candidature sans avoir à en justifier le motif.
 
@@ -98,7 +98,7 @@ Tout utilisateur de la plateforme NYME s'engage à :
 **4.3 Obligations spécifiques aux coursiers**
 
 • Adopter un comportement professionnel et courtois avec les clients et destinataires
-• Maintenir l'ensemble de leurs documents (permis de conduire, carte grise) en cours de validité
+• Maintenir l'ensemble de leurs documents en cours de validité
 • Mettre à jour en temps réel leur statut de disponibilité (disponible, occupé, hors ligne)
 • Ne pas sous-traiter une mission à un coursier non enregistré sur NYME
 • Garantir l'intégrité et la sécurité des colis confiés pendant toute la durée du transport
@@ -130,13 +130,28 @@ Les paiements peuvent être effectués via :
 • Wave (application de paiement mobile)
 • Wallet NYME (solde rechargeable dans l'application)
 
-**5.4 Wallet NYME**
+**5.4 Wallet NYME — Clients**
 
-Chaque utilisateur dispose d'un wallet numérique intégré. Le wallet peut être rechargé via les opérateurs Mobile Money. Pour les coursiers, les gains sont directement crédités sur le wallet après chaque livraison. Les retraits sont disponibles dans les paramètres de l'application.
+Chaque client dispose d'un wallet numérique intégré. Le wallet peut être rechargé via les opérateurs Mobile Money (Orange Money, Moov Money, Wave) pour régler les livraisons directement depuis l'application.
+
+**5.4.1 Wallet NYME — Coursiers (retrait des gains)**
+
+Les gains du coursier sont automatiquement crédités sur son wallet NYME dès qu'une livraison est confirmée. Le coursier peut retirer ses gains à tout moment depuis l'application mobile, sans minimum de retrait obligatoire, vers :
+
+• Orange Money
+• Moov Money
+• Wave
+
+Le délai de traitement est instantané. Les fonds sont disponibles sur le compte Mobile Money du coursier dans un délai maximal de quelques minutes. Chaque retrait est sécurisé par un code PIN ou authentification biométrique. L'historique complet des gains et retraits est consultable depuis l'espace coursier.
 
 **5.5 Tarification des abonnements partenaires**
 
-Les abonnements partenaires sont facturés mensuellement. Les tarifs détaillés sont disponibles sur la page Partenaires du site. NYME se réserve le droit de modifier ses tarifs avec un préavis de 15 jours.`
+Les abonnements partenaires sont facturés mensuellement selon les tarifs suivants :
+• **Starter** : 45 000 FCFA / mois (jusqu'à 40 livraisons)
+• **Business** : 90 000 FCFA / mois (jusqu'à 100 livraisons)
+• **Enterprise** : sur devis personnalisé (volume illimité)
+
+Les tarifs détaillés sont disponibles sur la page Partenaires du site. NYME se réserve le droit de modifier ses tarifs avec un préavis de 15 jours.`
   },
   {
     id: 'responsabilite', title: "6. Responsabilités et limitations de responsabilité",
@@ -197,7 +212,7 @@ En publiant ou soumettant du contenu sur la plateforme (avis, évaluations, phot
     id: 'droit', title: "9. Droit applicable et règlement des litiges",
     content: `Les présentes CGU sont soumises au droit en vigueur au Burkina Faso et rédigées en langue française.
 
-En cas de litige relatif à l'utilisation de la plateforme NYME, les parties s'engagent à tenter de résoudre leur différend à l'amiable dans un délai de 30 jours. Pour toute réclamation : nyme.contact@gmail.com ou +226 22 67 79 80 264.
+En cas de litige relatif à l'utilisation de la plateforme NYME, les parties s'engagent à tenter de résoudre leur différend à l'amiable dans un délai de 30 jours. Pour toute réclamation : nyme.contact@gmail.com ou +226 77 98 02 64.
 
 À défaut de résolution amiable, et si la médiation échoue, tout litige sera soumis à la compétence exclusive des tribunaux compétents de Ouagadougou, Burkina Faso.`
   },
@@ -240,7 +255,7 @@ export default function PolitiqueApplication() {
             Conditions Générales d'Utilisation
           </h1>
           <p className="text-white/60 font-body text-base">
-            Dernière mise à jour : Avril 2025 · Version 1.1
+            Dernière mise à jour : Avril 2025 · Version 1.2
           </p>
           <p className="text-white/45 font-body text-sm mt-2">
             Contact : <a href="mailto:nyme.contact@gmail.com" className="text-nyme-orange hover:underline font-semibold">nyme.contact@gmail.com</a>
