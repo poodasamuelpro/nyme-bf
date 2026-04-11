@@ -11,12 +11,12 @@ import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import type { PartenaireRow, LivraisonPartenaire as LivraisonPartenaireRow } from '@/lib/supabase'
 import {
-  Package, TrendingUp, Clock, CheckCircle, Zap, LogOut,
+  Package, Clock, CheckCircle, Zap, LogOut,
   User, Bell, RefreshCw, MapPin, AlertCircle,
   Calendar, Phone, Wallet, BarChart3, ShieldCheck, Plus,
   FileText, X, Search, Star, CreditCard, Settings,
   Map, UserPlus, BookOpen, Edit2, Trash2, ArrowUpRight,
-  Navigation, Bike, Circle, ChevronDown,
+  Navigation, Bike, Circle,
 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -150,8 +150,9 @@ export default function PartenaireDashboard() {
   const [soldeWallet, setSoldeWallet] = useState(0)
   const [txWallet,    setTxWallet]    = useState<any[]>([])
   const [coursierFavori, setCoursierFavori] = useState<CoursierActif | null>(null)
-  // ✅ FIX : générique déplacé sur new Map() pour résoudre l'erreur TS "Expected 1 arguments, but got 0"
-  const coursierPositionsRef = useRef(new Map<string, { lat: number; lng: number }>())
+  // ✅ FIX : type déclaré séparément pour compatibilité SWC/Next.js
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const coursierPositionsRef = useRef<Map<string, {lat: number; lng: number}>>(new Map())
   const [editingProfil, setEditingProfil] = useState(false)
   const [profilForm, setProfilForm] = useState({ entreprise: '', nom_contact: '', telephone: '', email_pro: '', adresse: '' })
   const [savingProfil, setSavingProfil] = useState(false)
