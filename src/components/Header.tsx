@@ -15,16 +15,14 @@ const navLinks = [
 ]
 
 /**
- * Pages à fond CLAIR (#F8FAFF) → le header doit être opaque bleu foncé dès le départ
+ * Pages à fond sombre → le header est transparent au sommet puis se colore au scroll
+ * Toutes les pages sont maintenant sur fond nyme-dark
  */
-const LIGHT_PAGES = ['/contact', '/partenaires']
 
 export default function Header() {
   const [isScrolled,   setIsScrolled]   = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const pathname = usePathname()
-
-  const isLightPage = LIGHT_PAGES.some(p => pathname === p || pathname?.startsWith(p))
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
@@ -44,11 +42,11 @@ export default function Header() {
   }, [isMobileOpen])
 
   const headerBg =
-    isLightPage || isScrolled || isMobileOpen
+    isScrolled || isMobileOpen
       ? 'bg-nyme-primary-dark/97 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-black/20'
       : 'bg-transparent'
 
-  const py = isScrolled || isMobileOpen || isLightPage ? 'py-3' : 'py-4 sm:py-5'
+  const py = isScrolled || isMobileOpen ? 'py-3' : 'py-4 sm:py-5'
 
   return (
     <>
