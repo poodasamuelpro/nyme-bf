@@ -76,7 +76,9 @@ const PLAN_CFG = {
     delai: 'Express',
     features: ['Livraisons illimit\u00e9es', '\u00c9quipe de livreurs', 'API sur mesure', 'Multi-utilisateurs', 'SLA garanti', 'Support 24h/24'],
   },
-}
+} as const
+
+type PlanKey = keyof typeof PLAN_CFG
 
 const STATUT_CFG: Record<string, { label: string; color: string; bg: string; dot: string; icon: string }> = {
   en_attente: { label: 'En attente',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-400',  icon: '\u23f3' },
@@ -149,7 +151,7 @@ export default function PartenaireDashboard() {
   const [soldeWallet, setSoldeWallet] = useState(0)
   const [txWallet,    setTxWallet]    = useState<any[]>([])
   const [coursierFavori, setCoursierFavori] = useState<CoursierActif | null>(null)
-  // \u2705 CORRECTION : g\u00e9n\u00e9rique d\u00e9plac\u00e9 sur new Map() pour r\u00e9soudre l'erreur TS "Expected 1 arguments, but got 0"
+  // \u2705 FIX : g\u00e9n\u00e9rique d\u00e9plac\u00e9 sur new Map() pour r\u00e9soudre l'erreur TS "Expected 1 arguments, but got 0"
   const coursierPositionsRef = useRef(new Map<string, { lat: number; lng: number }>())
   const [editingProfil, setEditingProfil] = useState(false)
   const [profilForm, setProfilForm] = useState({ entreprise: '', nom_contact: '', telephone: '', email_pro: '', adresse: '' })
@@ -418,7 +420,7 @@ export default function PartenaireDashboard() {
 
   const handlePaiementAbonnement = async () => {
     if (!partenaire || !userId) return
-    const plan = PLAN_CFG[partenaire.plan]
+    const plan = PLAN_CFG[partenaire.plan as PlanKey]
     if (plan.prix === 0) {
       toast('Contactez NYME pour renouveler votre plan Enterprise', { icon: '\ud83d\udcde' })
       return
@@ -512,7 +514,7 @@ export default function PartenaireDashboard() {
 
   const inp = 'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all bg-white placeholder-gray-400'
 
-  const plan = partenaire ? PLAN_CFG[partenaire.plan] : null
+  const plan = partenaire ? PLAN_CFG[partenaire.plan as PlanKey] : null
 
   // \u2500\u2500 Loading \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
@@ -535,222 +537,4 @@ export default function PartenaireDashboard() {
 
       {/* \u2500\u2500 HEADER \u2500\u2500 */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-sm shadow-orange-200">
-              <Zap size={15} className="text-white" strokeWidth={2.5} />
-            </div>
-            <span className="font-black text-gray-900 tracking-tight text-sm">NYME</span>
-            <span className="text-gray-300 text-xs hidden sm:block">/ Partenaires</span>
-          </Link>
-
-          <div className="flex items-center gap-1.5">
-            {alertes.length > 0 && (
-              <button onClick={() => setShowNotifPanel(!showNotifPanel)}
-                className="relative p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
-                <Bell size={16} />
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center font-black">
-                  {alertes.length}
-                </span>
-              </button>
-            )}
-            <button onClick={() => { if (userId) { setRefreshing(true); loadData(userId) } }} disabled={refreshing}
-              className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
-              <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100">
-              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-[10px] font-black">
-                {partenaire?.nom_contact?.charAt(0) || '?'}
-              </div>
-              <span className="text-gray-700 text-xs font-semibold truncate max-w-[100px]">
-                {partenaire?.nom_contact?.split(' ')[0]}
-              </span>
-              {plan && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold border ${plan.badge}`}>
-                  {plan.emoji}
-                </span>
-              )}
-            </div>
-
-            <button onClick={async () => { await supabase.auth.signOut(); window.location.href = '/partenaires/login' }}
-              className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Panel alertes */}
-        {showNotifPanel && alertes.length > 0 && (
-          <div className="absolute top-14 right-4 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-            {alertes.map((a, i) => (
-              <div key={i} className="p-4 flex items-start gap-3 border-b border-gray-50 last:border-0">
-                <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-gray-700 text-xs leading-relaxed">{a}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* TABS */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex overflow-x-auto gap-0 border-t border-gray-50 scrollbar-hide">
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${tab === t.id
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200'}`}>
-              <t.icon size={12} />{t.label}
-              {t.id === 'livraisons' && stats.enCours > 0 && (
-                <span className="w-4 h-4 bg-orange-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                  {stats.enCours}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-4">
-
-        {/* Alertes inline */}
-        {alertes.map((a, i) => (
-          <div key={i} className={`p-3.5 rounded-2xl border flex items-center gap-3 text-sm ${
-            a.includes('suspendu') ? 'bg-red-50 border-red-200 text-red-700'
-            : a.includes('validation') ? 'bg-blue-50 border-blue-200 text-blue-700'
-            : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-            <AlertCircle size={15} className="shrink-0" />
-            <span className="flex-1 font-medium text-xs">{a}</span>
-            {a.includes('Quota') && (
-              <a href="mailto:nyme.contact@gmail.com" className="text-xs font-black underline">Upgrader \u2192</a>
-            )}
-          </div>
-        ))}
-
-        {/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 DASHBOARD \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */}
-        {tab === 'dashboard' && (
-          <div className="space-y-4">
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-black text-gray-900">
-                  Bonjour, {partenaire?.nom_contact?.split(' ')[0]} \ud83d\udc4b
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <p className="text-gray-500 text-sm font-medium">{partenaire?.entreprise}</p>
-                  {plan && (
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-black border ${plan.badge}`}>
-                      {plan.emoji} {plan.label}
-                    </span>
-                  )}
-                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold border ${
-                    partenaire?.statut === 'actif'
-                      ? 'bg-green-50 text-green-700 border-green-200'
-                      : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                    {partenaire?.statut === 'actif' ? '\u25cf Actif' : '\u23f3 En attente'}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => { setTab('planifier'); setShowForm(true) }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-orange-200 transition-all whitespace-nowrap">
-                <Plus size={14} />Nouvelle livraison
-              </button>
-            </div>
-
-            {/* Quota barre */}
-            {partenaire && plan && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm">Quota mensuel</p>
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      {partenaire.livraisons_max - partenaire.livraisons_mois} livraisons restantes
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-gray-900">{partenaire.livraisons_mois}</span>
-                    <span className="text-gray-400 text-sm"> / {partenaire.livraisons_max}</span>
-                  </div>
-                </div>
-                <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${
-                      progression >= 100 ? 'bg-red-500' : progression >= 80 ? 'bg-amber-400' : 'bg-gradient-to-r from-orange-400 to-orange-500'
-                    }`}
-                    style={{ width: `${progression}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-gray-300 text-xs">0</span>
-                  <span className={`text-xs font-bold ${progression >= 80 ? 'text-amber-600' : 'text-gray-400'}`}>
-                    {progression}%
-                  </span>
-                  <span className="text-gray-300 text-xs">{partenaire.livraisons_max}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { icon: Package,     label: 'Total',        value: stats.total,     sub: '7 jours',        color: 'bg-blue-500',   spark: spark7,       sparkColor: '#3b82f6' },
-                { icon: CheckCircle, label: 'Livr\u00e9es',      value: stats.livrees,   sub: `${stats.txSucces}% succ\u00e8s`, color: 'bg-green-500',  spark: null,         sparkColor: '#22c55e' },
-                { icon: Bike,        label: 'En livraison', value: stats.enCours,   sub: 'maintenant',     color: stats.enCours > 0 ? 'bg-orange-500' : 'bg-gray-400', spark: null, sparkColor: '#f97316' },
-                { icon: Clock,       label: 'En attente',   value: stats.enAttente, sub: '\u00e0 traiter',      color: 'bg-violet-500', spark: null,         sparkColor: '#8b5cf6' },
-              ].map(s => (
-                <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className={`w-9 h-9 ${s.color} rounded-xl flex items-center justify-center shrink-0`}>
-                      <s.icon size={16} className="text-white" />
-                    </div>
-                    {s.spark && <MiniSparkline data={s.spark} color={s.sparkColor} />}
-                  </div>
-                  <div>
-                    <p className="text-2xl font-black text-gray-900">{s.value}</p>
-                    <p className="text-gray-400 text-xs mt-0.5">{s.label}</p>
-                    <p className="text-gray-300 text-[10px]">{s.sub}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Livraisons EN COURS */}
-            {stats.enCours > 0 && (
-              <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-4 text-white">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    <p className="font-black text-sm">{stats.enCours} livraison{stats.enCours > 1 ? 's' : ''} en cours</p>
-                  </div>
-                  <button onClick={() => setTab('carte')}
-                    className="text-xs text-white/80 font-semibold flex items-center gap-1 hover:text-white">
-                    <Navigation size={11} />Voir carte
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {livraisons.filter(l => l.statut === 'en_cours').slice(0, 2).map(l => (
-                    <div key={l.id} onClick={() => setDetail(l)}
-                      className="bg-white/15 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-white/25 transition-colors">
-                      <Bike size={14} className="text-white/80 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-xs font-semibold truncate">{l.adresse_arrivee}</p>
-                        <p className="text-white/60 text-[10px]">Pour {l.destinataire_nom || '\u2014'}</p>
-                      </div>
-                      <ArrowUpRight size={12} className="text-white/60 shrink-0" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Coursier du mois */}
-            {coursierFavori && (
-              <div className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-sm">
-                  {coursierFavori.nom.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-black text-gray-900 text-sm">{coursierFavori.nom}</p>
-                    <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-amber-200 flex items-center gap-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-
