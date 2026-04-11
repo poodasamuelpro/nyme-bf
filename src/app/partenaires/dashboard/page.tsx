@@ -76,9 +76,8 @@ const PLAN_CFG = {
     delai: 'Express',
     features: ['Livraisons illimitées', 'Équipe de livreurs', 'API sur mesure', 'Multi-utilisateurs', 'SLA garanti', 'Support 24h/24'],
   },
-} as const
+}
 
-type PlanKey = keyof typeof PLAN_CFG
 
 const STATUT_CFG: Record<string, { label: string; color: string; bg: string; dot: string; icon: string }> = {
   en_attente: { label: 'En attente',   color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200',  dot: 'bg-amber-400',  icon: '⏳' },
@@ -420,7 +419,7 @@ export default function PartenaireDashboard() {
 
   const handlePaiementAbonnement = async () => {
     if (!partenaire || !userId) return
-    const plan = PLAN_CFG[partenaire.plan as PlanKey]
+    const plan = PLAN_CFG[partenaire.plan as keyof typeof PLAN_CFG]
     if (plan.prix === 0) {
       toast('Contactez NYME pour renouveler votre plan Enterprise', { icon: '📞' })
       return
@@ -514,23 +513,25 @@ export default function PartenaireDashboard() {
 
   const inp = 'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all bg-white placeholder-gray-400'
 
-  const plan = partenaire ? PLAN_CFG[partenaire.plan as PlanKey] : null
+  const plan = partenaire ? PLAN_CFG[partenaire.plan as keyof typeof PLAN_CFG] : null
 
   // ── Loading ─────────────────────────────────────────────────────
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#f7f7f5] flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="relative w-16 h-16 mx-auto">
-          <div className="w-16 h-16 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Bike size={20} className="text-orange-500" />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f7f7f5] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative w-16 h-16 mx-auto">
+            <div className="w-16 h-16 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Bike size={20} className="text-orange-500" />
+            </div>
           </div>
+          <p className="text-gray-500 text-sm font-medium">Chargement de votre espace…</p>
         </div>
-        <p className="text-gray-500 text-sm font-medium">Chargement de votre espace…</p>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f7f5] font-sans">
