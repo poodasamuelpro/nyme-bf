@@ -150,9 +150,7 @@ export default function PartenaireDashboard() {
   const [soldeWallet, setSoldeWallet] = useState(0)
   const [txWallet,    setTxWallet]    = useState<any[]>([])
   const [coursierFavori, setCoursierFavori] = useState<CoursierActif | null>(null)
-  // ✅ FIX : type déclaré séparément pour compatibilité SWC/Next.js
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const coursierPositionsRef = useRef<Map<string, {lat: number; lng: number}>>(new Map())
+  const coursierPositionsRef = useRef(new Map() as Map<string, {lat: number; lng: number}>)
   const [editingProfil, setEditingProfil] = useState(false)
   const [profilForm, setProfilForm] = useState({ entreprise: '', nom_contact: '', telephone: '', email_pro: '', adresse: '' })
   const [savingProfil, setSavingProfil] = useState(false)
