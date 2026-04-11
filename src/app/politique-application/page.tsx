@@ -206,7 +206,7 @@ En cas de litige relatif à l'utilisation de la plateforme NYME, les parties s'e
     content: `Pour toute question relative aux présentes CGU, à l'utilisation de la plateforme ou en cas de problème :
 
 📧 Email : nyme.contact@gmail.com
-📞 Téléphone / WhatsApp : +226 22 67 79 80 264
+📞 Téléphone / WhatsApp : +226 77 98 02 64
 🌐 Centre d'aide : disponible sur le site web à la rubrique "Support"
 📍 Adresse : Ouagadougou, Burkina Faso
 
