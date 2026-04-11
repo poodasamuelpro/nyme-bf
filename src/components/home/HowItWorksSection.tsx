@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 
 const steps = [
-  { step: '01', emoji: '📍', title: 'Saisissez départ & arrivée', desc: "Indiquez d'où part votre colis et où il doit aller. L'app calcule le prix automatiquement en secondes." },
-  { step: '02', emoji: '💬', title: 'Négociez votre prix',        desc: "Acceptez le prix calculé ou proposez le vôtre. Les coursiers proches répondent avec leurs offres en temps réel." },
-  { step: '03', emoji: '🛵', title: 'Choisissez votre coursier',  desc: "Sélectionnez l'offre qui vous convient. Tous les coursiers sont vérifiés, notés et identifiés." },
-  { step: '04', emoji: '📦', title: 'Suivez en direct',           desc: "Votre coursier est sur la carte en temps réel. Notifications à chaque étape. Livraison confirmée avec photo." },
+  { step: '01', emoji: '📍', title: 'Indiquez départ & arrivée', desc: "Saisissez l'adresse de récupération et celle de livraison. L'application calcule automatiquement l'itinéraire et le prix en quelques secondes." },
+  { step: '02', emoji: '💬', title: 'Négociez votre prix',        desc: "Acceptez le tarif calculé ou proposez votre propre prix. Les coursiers disponibles dans votre zone répondent avec leurs offres en temps réel." },
+  { step: '03', emoji: '🛵', title: 'Choisissez votre coursier',  desc: "Sélectionnez l'offre qui vous convient le mieux. Chaque coursier est vérifié, noté par les clients précédents et identifié avec son véhicule." },
+  { step: '04', emoji: '📦', title: 'Suivez en direct',           desc: "Votre coursier est visible sur la carte en temps réel. Vous recevez une notification à chaque étape — récupération, en route, livraison effectuée." },
 ]
 
 export default function HowItWorksSection() {
@@ -42,7 +42,7 @@ export default function HowItWorksSection() {
             Comment ça marche ?
           </h2>
           <p className="text-white/70 font-body text-base sm:text-lg max-w-xl mx-auto px-4">
-            En 4 étapes simples, envoyez votre colis n'importe où à Ouagadougou.
+            En 4 étapes simples, envoyez votre colis n'importe où à Ouagadougou — en quelques minutes.
           </p>
         </div>
 
