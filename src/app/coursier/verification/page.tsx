@@ -31,7 +31,7 @@ const DOC_CONFIG: Array<{
 }> = [
   { key: 'cni_recto', label: 'CNI Recto', description: 'Photo recto de votre Carte Nationale d\'Identité', required: true, icon: FileText },
   { key: 'cni_verso', label: 'CNI Verso', description: 'Photo verso de votre CNI', required: true, icon: FileText },
-  { key: 'permis', label: 'Permis de conduire', description: 'Photo de votre permis de conduire', required: true, icon: FileText },
+  { key: 'permis', label: 'Permis de conduire', description: 'Photo de votre permis de conduire (facultatif)', required: false, icon: FileText },
   { key: 'carte_grise', label: 'Carte grise véhicule', description: 'Document d\'immatriculation de votre véhicule', required: false, icon: FileText },
 ]
 
@@ -233,7 +233,7 @@ export default function VerificationPage() {
             </div>
             <p className="text-gray-500 text-xs">
               {progression < 100
-                ? `Soumettez tous les documents obligatoires pour validation`
+                ? `Soumettez les documents CNI (recto/verso) et carte grise pour validation`
                 : `Documents soumis — validation en cours (24-48h)`}
             </p>
           </div>
