@@ -6,6 +6,9 @@
 //   [FIX-D] CSP font-src — data: ajouté (Leaflet inline fonts)
 //   [FIX-E] CSP connect-src — nominatim.openstreetmap.org ajouté (géocodage fallback)
 //   [FIX-F] domains maintenu pour rétrocompat mais remotePatterns reste la source de vérité
+//   [SENTRY] withSentryConfig ajouté pour monitoring
+
+const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -151,6 +154,9 @@ const nextConfig = {
                 "https://nominatim.openstreetmap.org",
                 // Tuiles OSM (fetch depuis Leaflet)
                 "https://*.tile.openstreetmap.org",
+                // Sentry tunnel
+                "https://*.sentry.io",
+                "https://*.ingest.de.sentry.io",
               ].join(' '),
 
               // Frames : aucune (anti-clickjacking)
@@ -172,4 +178,24 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(nextConfig, {
+  // Organisation et projet Sentry
+  org: "poodasamuelpro",
+  project: "nyme-bf",
+
+  // Pas d'upload de source maps (pas de auth-token ici, géré via env Vercel)
+  silent: true,
+
+  // Tunnel Sentry via le serveur Next.js (contourne les ad-blockers)
+  tunnelRoute: "/monitoring",
+
+  // Masque les source maps côté client
+  hideSourceMaps: true,
+
+  // Options webpack modernes (remplace les options dépréciées)
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});
